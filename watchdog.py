@@ -5,8 +5,8 @@ from datetime import datetime
 BATTERY_ENTITY = "sensor.pave_numerique_36417_battery"
 REMOTE_ENTITY = "sensor.remote_home_assistant_update"
 
-TELEGRAM_TARGET = None  # optionnel: mets un chat_id si ton service le demande
-TWILIO_SERVICE = "notify.notifier_twilio"  # adapte si ton service Twilio a un autre nom
+TELEGRAM_TARGET = None  # mets un chat_id si nécessaire
+TWILIO_TARGET = "+41792763781"
 
 def _safe_float(value):
     try:
@@ -26,20 +26,26 @@ def _build_message(battery_value, remote_value, problems):
     return (
         f"Alerte watchdog Home Assistant ({now_txt}) - {details}. "
         f"Batterie actuelle: {battery_value}. "
-        f"Etat connexion distante: {remote_value}."
+        f"État connexion distante: {remote_value}."
     )
 
 def _send_alert(message):
-    data = {
+    telegram_data = {
         "title": "Alerte watchdog",
         "message": message,
     }
 
     if TELEGRAM_TARGET is not None:
-        data["target"] = TELEGRAM_TARGET
+        telegram_data["target"] = TELEGRAM_TARGET
 
-    service.call("telegram_bot", "send_message", **data)
-    service.call("notify", "twilio", target=41792763781, message=message)
+    service.call("telegram_bot", "send_message", **telegram_data)
+
+    service.call(
+        "notify",
+        "twilio",
+        message=message,
+        target=[TWILIO_TARGET]
+    )
 
 @time_trigger("cron(0 * * * *)")
 def watchdog_hourly():
@@ -51,4 +57,15 @@ def watchdog_hourly():
 
     problems = []
 
-    if battery 
+    if battery is None:
+        problems.append(f"batterie illisible sur {BATTERY_ENTITY}")
+    elif battery < 10:
+        problems.append(f"batterie faible ({battery:.0f}%)")
+
+    if not remote_ok:
+        problems.append(f"connexion distante inactive ({REMOTE_ENTITY}={remote_raw})")
+
+    if problems:
+        message = _build_message(battery_raw, remote_raw, problems)
+        log.warning(message)
+        _send_alert(message)
