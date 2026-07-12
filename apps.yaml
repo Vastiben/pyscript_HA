@@ -1,0 +1,3 @@
+apps:
+  sleep_summary:
+    persist_state: true
