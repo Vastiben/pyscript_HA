@@ -3,7 +3,7 @@
 from datetime import datetime
 
 BATTERY_ENTITY = "sensor.pave_numerique_36417_battery"
-REMOTE_ENTITY = "sensor.remote_home_assistant_update"
+REMOTE_ENTITY = "sensor.remote_connection_to_ha_secours_local_8123"
 
 TELEGRAM_TARGET = None  # mets un chat_id si nécessaire
 TWILIO_TARGET = "+41792763781"
