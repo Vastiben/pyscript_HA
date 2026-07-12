@@ -42,7 +42,7 @@ def _send_alert(message):
 
     service.call(
         "notify",
-        "twilio",
+        "notifier_twilio",
         message=message,
         target=[TWILIO_TARGET]
     )
