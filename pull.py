@@ -1,29 +1,16 @@
-import urllib.request
-import json
-import os
-
-REPO = "Vastiben/pyscript_HA"
-BRANCH = "main"
-SHA_FILE = "/config/pyscript/.last_sha"
+import subprocess
 
 @time_trigger("cron(*/5 * * * *)")
-def check_new_commit():
-    url = f"https://api.github.com/repos/{REPO}/commits/{BRANCH}"
-    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github.v3+json"})
-
-    with urllib.request.urlopen(req) as resp:
-        data = json.loads(resp.read())
-    latest_sha = data["sha"]
-
-    last_sha = ""
-    if os.path.exists(SHA_FILE):
-        with open(SHA_FILE) as f:
-            last_sha = f.read().strip()
-
-    if latest_sha != last_sha:
-        log.info(f"Nouveau commit détecté : {latest_sha}")
-        with open(SHA_FILE, "w") as f:
-            f.write(latest_sha)
-        sync_files()
-    else:
+def check_and_pull():
+    result = subprocess.run(
+        ["git", "-C", "/config/pyscript", "pull"],
+        capture_output=True,
+        text=True
+    )
+    if "Already up to date" in result.stdout:
         log.info("Aucun nouveau commit")
+    elif result.returncode == 0:
+        log.info(f"Nouveau commit récupéré : {result.stdout.strip()}")
+        hass.services.call("pyscript", "reload", {})
+    else:
+        log.error(f"Erreur git pull : {result.stderr.strip()}")
