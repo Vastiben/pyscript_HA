@@ -7,10 +7,13 @@ def check_and_pull():
         capture_output=True,
         text=True
     )
-    if "Already up to date" in result.stdout:
+    
+    if result.returncode != 0:
+        log.error(f"Erreur git pull : {result.stderr.strip()}")
+        return
+    
+    if "up to date" in result.stdout.lower():
         log.info("Aucun nouveau commit")
-    elif result.returncode == 0:
+    else:
         log.info(f"Nouveau commit récupéré : {result.stdout.strip()}")
         hass.services.call("pyscript", "reload", {})
-    else:
-        log.error(f"Erreur git pull : {result.stderr.strip()}")
