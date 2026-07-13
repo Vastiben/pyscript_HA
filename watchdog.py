@@ -47,7 +47,7 @@ def _send_alert(message):
         target=[TWILIO_TARGET]
     )
 
-@time_trigger("cron(0 * * * *)")
+@time_trigger("cron(0 8,20 * * *)")
 def watchdog_hourly():
     battery_raw = state.get(BATTERY_ENTITY)
     remote_raw = state.get(REMOTE_ENTITY)
