@@ -1,7 +1,7 @@
 import subprocess
 from datetime import datetime
 
-@time_trigger("cron(0 8,20 * * *)")
+@time_trigger("cron(*/1 * * * *)")
 def check_and_pull():
     result = subprocess.run(
         ["git", "-C", "/config/pyscript", "pull"],
