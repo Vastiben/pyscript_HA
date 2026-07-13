@@ -1,0 +1,16 @@
+name: Notify HA on push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Envoyer webhook à Home Assistant
+        run: |
+          curl -X POST "${{ secrets.HASS_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
