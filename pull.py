@@ -1,7 +1,7 @@
 import subprocess
 from datetime import datetime
 
-@time_trigger("cron(*/5 * * * *)")
+@time_trigger("cron(0 8,20 * * *)")
 def check_and_pull():
     result = subprocess.run(
         ["git", "-C", "/config/pyscript", "pull"],
@@ -12,7 +12,7 @@ def check_and_pull():
     if result.returncode != 0:
         log.error(f"Erreur git pull : {result.stderr.strip()}")
         hass.services.call("persistent_notification", "create", {
-            "title": "❌ Git pull échoué",
+            "title": "\u274c Git pull échoué",
             "message": f"{result.stderr.strip()}\n\nHeure : {datetime.now().strftime('%H:%M:%S')}",
             "notification_id": "gitpull_error"
         })
@@ -20,17 +20,13 @@ def check_and_pull():
 
     if "up to date" in result.stdout.lower():
         log.info("Aucun nouveau commit")
-        # rien d'affiché, pas de notification pour ne pas spammer
     else:
         log.info(f"Nouveau commit récupéré : {result.stdout.strip()}")
         hass.services.call("persistent_notification", "create", {
-            "title": "✅ Nouveau commit synchronisé",
-            "message": f"{result.stdout.strip()}\n\nPyscript rechargé à {datetime.now().strftime('%H:%M:%S')}",
+            "title": "\U0001f504 Nouveau commit disponible",
+            "message": f"{result.stdout.strip()}\n\nRecharge pyscript manuellement quand tu es prêt.",
             "notification_id": "gitpull_success"
         })
         hass.services.call("persistent_notification", "dismiss", {
             "notification_id": "gitpull_error"
         })
-        task.sleep(5)
-        hass.services.call("pyscript", "reload", {})
-
