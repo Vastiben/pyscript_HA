@@ -23,7 +23,6 @@ def check_and_pull():
         # rien d'affiché, pas de notification pour ne pas spammer
     else:
         log.info(f"Nouveau commit récupéré : {result.stdout.strip()}")
-        hass.services.call("pyscript", "reload", {})
         hass.services.call("persistent_notification", "create", {
             "title": "✅ Nouveau commit synchronisé",
             "message": f"{result.stdout.strip()}\n\nPyscript rechargé à {datetime.now().strftime('%H:%M:%S')}",
@@ -32,3 +31,6 @@ def check_and_pull():
         hass.services.call("persistent_notification", "dismiss", {
             "notification_id": "gitpull_error"
         })
+        task.sleep(5)
+        hass.services.call("pyscript", "reload", {})
+
