@@ -1,6 +1,6 @@
 import subprocess
 
-@time_trigger("cron(*/5 * * * *)")
+@time_trigger("cron(*/1 * * * *)")
 def check_and_pull():
     result = subprocess.run(
         ["git", "-C", "/config/pyscript", "pull"],
