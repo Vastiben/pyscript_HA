@@ -30,15 +30,15 @@ def _build_message(battery_value, remote_value, problems):
     )
 
 def _send_alert(message):
-    telegram_data = {
-        "title": "Alerte watchdog",
-        "message": message,
-    }
-
-    if TELEGRAM_TARGET is not None:
-        telegram_data["target"] = TELEGRAM_TARGET
-
-    service.call("telegram_bot", "send_message", **telegram_data)
+    # ── Telegram (désactivé) ──────────────────────────────────────────────────
+    # telegram_data = {
+    #     "title": "Alerte watchdog",
+    #     "message": message,
+    # }
+    # if TELEGRAM_TARGET is not None:
+    #     telegram_data["target"] = TELEGRAM_TARGET
+    # service.call("telegram_bot", "send_message", **telegram_data)
+    # ─────────────────────────────────────────────────────────────────────────
 
     service.call(
         "notify",
