@@ -1,5 +1,4 @@
 import subprocess
-import time
 from datetime import datetime
 
 TARGET_NAME = "ha-slave"
@@ -32,7 +31,7 @@ def _ping_with_retries(ip):
         if ok:
             return True, stdout, stderr
         last_stdout, last_stderr = stdout, stderr
-        asyncio.sleep(PING_RETRY_DELAY)
+        time.sleep(PING_RETRY_DELAY)
     return False, last_stdout, last_stderr
 
 
