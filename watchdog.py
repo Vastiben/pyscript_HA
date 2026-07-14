@@ -3,10 +3,10 @@
 from datetime import datetime
 
 BATTERY_ENTITY = "sensor.pave_numerique_36417_battery"
-REMOTE_ENTITY = "sensor.remote_connection_to_ha_secours_local_8123"
 
 TELEGRAM_TARGET = None  # mets un chat_id si nécessaire
 TWILIO_TARGET = "+41792763781"
+
 
 def _safe_float(value):
     try:
@@ -14,32 +14,18 @@ def _safe_float(value):
     except Exception:
         return None
 
-def _is_remote_ok(value):
-    if value is None:
-        return False
-    txt = str(value).strip().lower()
-    return txt not in ["unknown", "unavailable", "off", "disconnected", "down", "false", "0", "none", ""]
 
-def _build_message(battery_value, remote_value, problems):
+def _build_message(battery_value, problems):
     now_txt = datetime.now().strftime("%d.%m.%Y %H:%M")
     details = " ; ".join(problems)
     return (
         f"Alerte watchdog Home Assistant ({now_txt}) - {details}. "
-        f"Batterie actuelle: {battery_value}. "
-        f"État connexion distante: {remote_value}."
+        f"Batterie actuelle: {battery_value}."
     )
+
 
 def _send_alert(message):
     log.info("▶ _send_alert démarré")
-    # ── Telegram (désactivé) ──────────────────────────────────────────────────
-    # telegram_data = {
-    #     "title": "Alerte watchdog",
-    #     "message": message,
-    # }
-    # if TELEGRAM_TARGET is not None:
-    #     telegram_data["target"] = TELEGRAM_TARGET
-    # service.call("telegram_bot", "send_message", **telegram_data)
-    # ─────────────────────────────────────────────────────────────────────────
 
     service.call(
         "notify",
@@ -47,19 +33,18 @@ def _send_alert(message):
         message=message,
         target=[TWILIO_TARGET]
     )
+
     log.info("✅ _send_alert — Twilio envoyé")
+
 
 @time_trigger("cron(0 8,20 * * *)")
 @service
 def watchdog_hourly():
     log.info("▶ watchdog_hourly démarré")
     battery_raw = state.get(BATTERY_ENTITY)
-    remote_raw = state.get(REMOTE_ENTITY)
-    log.debug(f"  battery_raw={battery_raw} | remote_raw={remote_raw}")
+    log.debug(f"  battery_raw={battery_raw}")
 
     battery = _safe_float(battery_raw)
-    remote_ok = _is_remote_ok(remote_raw)
-
     problems = []
 
     if battery is None:
@@ -69,12 +54,8 @@ def watchdog_hourly():
         problems.append(f"batterie faible ({battery:.0f}%)")
         log.warning(f"⚠ watchdog — batterie faible : {battery:.0f}%")
 
-    if not remote_ok:
-        problems.append(f"connexion distante inactive ({REMOTE_ENTITY}={remote_raw})")
-        log.warning(f"⚠ watchdog — connexion distante KO : {remote_raw}")
-
     if problems:
-        message = _build_message(battery_raw, remote_raw, problems)
+        message = _build_message(battery_raw, problems)
         log.warning(f"🚨 watchdog_hourly — alerte envoyée : {message}")
         _send_alert(message)
     else:
