@@ -3,8 +3,8 @@ from datetime import datetime
 
 TARGET_NAME = "ha-slave"
 TARGET_IP = "172.27.66.3"
-CHECK_CRON = "cron(*/5 * * * *)"
-FAIL_THRESHOLD = 3
+CHECK_CRON = "cron(*/1 * * * *)"
+FAIL_THRESHOLD = 5
 PING_RETRIES = 3
 PING_RETRY_DELAY = 2
 TWILIO_TARGET = "+41792763781"
