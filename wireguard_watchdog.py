@@ -31,7 +31,7 @@ def _ping_with_retries(ip):
         if ok:
             return True, stdout, stderr
         last_stdout, last_stderr = stdout, stderr
-        time.sleep(PING_RETRY_DELAY)
+        task.sleep(PING_RETRY_DELAY)
     return False, last_stdout, last_stderr
 
 
