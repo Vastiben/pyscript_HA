@@ -1,3 +1,12 @@
+# Configuration pyscript
+# autoload: false → pyscript ne recharge plus HA automatiquement quand un fichier change
+# Le git pull récupère les fichiers mais le reload doit être fait manuellement
+# (Paramètres → Intégrations → pyscript → Recharger)
+pyscript:
+  autoload: false
+  allow_all_imports: true
+  hass_is_global: true
+
 apps:
   sleep_summary:
     persist_state: true
