@@ -30,6 +30,7 @@ def _build_message(battery_value, remote_value, problems):
     )
 
 def _send_alert(message):
+    log.info("▶ _send_alert démarré")
     # ── Telegram (désactivé) ──────────────────────────────────────────────────
     # telegram_data = {
     #     "title": "Alerte watchdog",
@@ -46,11 +47,15 @@ def _send_alert(message):
         message=message,
         target=[TWILIO_TARGET]
     )
+    log.info("✅ _send_alert — Twilio envoyé")
 
 @time_trigger("cron(0 8,20 * * *)")
+@service
 def watchdog_hourly():
+    log.info("▶ watchdog_hourly démarré")
     battery_raw = state.get(BATTERY_ENTITY)
     remote_raw = state.get(REMOTE_ENTITY)
+    log.debug(f"  battery_raw={battery_raw} | remote_raw={remote_raw}")
 
     battery = _safe_float(battery_raw)
     remote_ok = _is_remote_ok(remote_raw)
@@ -59,13 +64,18 @@ def watchdog_hourly():
 
     if battery is None:
         problems.append(f"batterie illisible sur {BATTERY_ENTITY}")
+        log.warning(f"⚠ watchdog — batterie illisible : {BATTERY_ENTITY}")
     elif battery < 10:
         problems.append(f"batterie faible ({battery:.0f}%)")
+        log.warning(f"⚠ watchdog — batterie faible : {battery:.0f}%")
 
     if not remote_ok:
         problems.append(f"connexion distante inactive ({REMOTE_ENTITY}={remote_raw})")
+        log.warning(f"⚠ watchdog — connexion distante KO : {remote_raw}")
 
     if problems:
         message = _build_message(battery_raw, remote_raw, problems)
-        log.warning(message)
+        log.warning(f"🚨 watchdog_hourly — alerte envoyée : {message}")
         _send_alert(message)
+    else:
+        log.info("✅ watchdog_hourly — tout OK, aucune alerte")
