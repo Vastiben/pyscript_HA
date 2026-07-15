@@ -25,7 +25,7 @@ CONFIG = {
     "referer": "https://uni004eu5.fusionsolar.huawei.com/uniportal/pvmswebsite/assets/build/cloud.html?app-id=smartpvms",
     # Paste the complete Cookie request header value here, for example:
     # "cookie": "SESSION=...; other_cookie=...",
-    "cookie": "PASTE_EDGE_NETWORK_COOKIE_HERE",
+    "cookie": "JSESSIONID=520FBE4CD997FE338902E66458AA5663",
     "update_every": "period(now, 2min)",
 }
 
