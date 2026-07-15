@@ -1,26 +1,28 @@
 import subprocess
 from datetime import datetime
 
-TARGET_NAME           = "ha-slave"
-TARGET_IP             = "172.27.66.3"
-WG_INTERFACE          = "wg0"
+TARGET_NAME      = "ha-slave"
+TARGET_IP        = "172.27.66.3"
+WG_INTERFACE     = "wg0"
 
-# ── Seul paramètre à modifier pour changer la fréquence ──────────────────────
-CHECK_INTERVAL_SEC    = 5 * 60          # 5 minutes
-PING_TIMEOUT          = 5               # secondes timeout par ping (-W)
-CYCLE_MARGIN_SEC      = 30              # marge avant le prochain trigger
-FAIL_THRESHOLD        = 3              # alarme après N cycles KO consécutifs
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Paramètres configurables ───────────────────────────────────────────────────
+CHECK_CRON_MIN    = 5    # fréquence du cron (minutes)
+CYCLE_MARGIN_SEC  = 30   # marge de sécurité avant le prochain trigger (secondes)
+TEST_INTERVAL_SEC = 30   # intervalle entre chaque sous-test (secondes)
+# ──────────────────────────────────────────────────────────────────────────────
 
-CHECK_CRON            = f"cron(*/{CHECK_INTERVAL_SEC // 60} * * * *)"
-WG_HANDSHAKE_MAX_AGE  = CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC
-PING_RETRIES          = (CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC) // PING_TIMEOUT
+# Tout le reste se calcule automatiquement
+CHECK_INTERVAL_SEC   = CHECK_CRON_MIN * 60
+USABLE_SEC           = CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC
+PING_TIMEOUT         = TEST_INTERVAL_SEC
+MAX_ATTEMPTS         = USABLE_SEC // TEST_INTERVAL_SEC
+CHECK_CRON           = f"cron(*/{CHECK_CRON_MIN} * * * *)"
+WG_HANDSHAKE_MAX_AGE = CHECK_INTERVAL_SEC
 
-TWILIO_TARGET         = "+41792763781"
-TELEGRAM_CHAT_ID      = 7332342681
+TWILIO_TARGET    = "+41792763781"
+TELEGRAM_CHAT_ID = 7332342681
 
-fail_count    = 0
-link_down     = False
+link_down      = False
 _check_running = False
 
 
@@ -31,15 +33,6 @@ def _ping_once(ip):
         text=True
     )
     return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
-
-
-def _ping_with_retries(ip):
-    for attempt in range(1, PING_RETRIES + 1):
-        ok, stdout, stderr = _ping_once(ip)
-        log.debug(f"  ping tentative {attempt}/{PING_RETRIES} -> ok={ok}")
-        if ok:
-            return True, stdout, stderr
-    return False, stdout, stderr
 
 
 def _check_handshake():
@@ -105,7 +98,8 @@ def _set_status(status, details=""):
         new_attributes={
             "friendly_name": "WireGuard ha-slave",
             "target_ip": TARGET_IP,
-            "fail_count": fail_count,
+            "ping_timeout": PING_TIMEOUT,
+            "max_attempts": MAX_ATTEMPTS,
             "last_check": datetime.now().isoformat(),
             "details": details,
         }
@@ -113,7 +107,7 @@ def _set_status(status, details=""):
 
 
 def _run_check(source="cron"):
-    global fail_count, link_down, _check_running
+    global link_down, _check_running
 
     if _check_running:
         log.warning("⚠ wireguard_ha_slave_check déjà en cours, skip")
@@ -121,41 +115,53 @@ def _run_check(source="cron"):
     _check_running = True
 
     try:
-        log.info(f"▶ wireguard_ha_slave_check démarré ({source}) | retries={PING_RETRIES} timeout={PING_TIMEOUT}s handshake_max={WG_HANDSHAKE_MAX_AGE}s")
-
-        hs_ok,   hs_detail              = _check_handshake()
-        ping_ok, ping_stdout, ping_stderr = _ping_with_retries(TARGET_IP)
-
-        log.debug(f"  handshake={'OK' if hs_ok else 'KO'} | ping={'OK' if ping_ok else 'KO'}")
-
-        if hs_ok and ping_ok:
-            if link_down:
-                msg = (
-                    f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
-                    f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
-                )
-                log.warning(f"✅ {msg}")
-                _clear_down_notification()
-                _notify_up(msg)
-            fail_count = 0
-            link_down  = False
-            _set_status("up", f"ping OK | {hs_detail}")
-            log.info("✅ wireguard_ha_slave_check terminé - lien OK")
-            return
-
-        # Au moins un des deux a échoué
-        fail_count += 1
-        details = (
-            f"handshake={'OK' if hs_ok else hs_detail} | "
-            f"ping={'OK' if ping_ok else (ping_stderr or ping_stdout or 'KO')}"
+        log.info(
+            f"▶ wireguard_ha_slave_check démarré ({source}) | "
+            f"attempts={MAX_ATTEMPTS} interval={TEST_INTERVAL_SEC}s "
+            f"ping_timeout={PING_TIMEOUT}s handshake_max={WG_HANDSHAKE_MAX_AGE}s"
         )
-        _set_status("down", details)
-        log.warning(f"⚠ wireguard_ha_slave_check - échec {fail_count}/{FAIL_THRESHOLD} | {details}")
 
-        if fail_count >= FAIL_THRESHOLD and not link_down:
+        details = ""
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            hs_ok,   hs_detail               = _check_handshake()
+            ping_ok, ping_stdout, ping_stderr = _ping_once(TARGET_IP)
+
+            log.debug(
+                f"  tentative {attempt}/{MAX_ATTEMPTS} | "
+                f"handshake={'OK' if hs_ok else 'KO'} | "
+                f"ping={'OK' if ping_ok else 'KO'}"
+            )
+
+            if hs_ok or ping_ok:
+                # Au moins un des deux OK → lien considéré UP
+                if link_down:
+                    msg = (
+                        f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
+                        f"Tentative : {attempt}/{MAX_ATTEMPTS}\n"
+                        f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
+                    )
+                    log.warning(f"✅ {msg}")
+                    _clear_down_notification()
+                    _notify_up(msg)
+
+                link_down = False
+                _set_status("up", f"handshake={'OK' if hs_ok else hs_detail} | ping={'OK' if ping_ok else 'KO'}")
+                log.info(f"✅ wireguard_ha_slave_check terminé - lien OK (tentative {attempt}/{MAX_ATTEMPTS})")
+                return
+
+            # Les deux KO → on attend et on retente (sauf dernière tentative)
+            details = f"handshake={hs_detail} | ping={ping_stderr or ping_stdout or 'KO'}"
+            _set_status("down", details)
+            log.warning(f"⚠ tentative {attempt}/{MAX_ATTEMPTS} KO | {details}")
+
+            if attempt < MAX_ATTEMPTS:
+                task.sleep(TEST_INTERVAL_SEC)
+
+        # Toutes les tentatives épuisées → ALARME
+        if not link_down:
             msg = (
                 f"Lien WireGuard indisponible vers {TARGET_NAME} ({TARGET_IP}).\n"
-                f"Échecs consécutifs : {fail_count}\n"
+                f"Toutes les tentatives échouées : {MAX_ATTEMPTS}/{MAX_ATTEMPTS}\n"
                 f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
                 f"Détail : {details}"
             )
@@ -163,7 +169,7 @@ def _run_check(source="cron"):
             _notify_down(msg)
             link_down = True
 
-        log.info("✅ wireguard_ha_slave_check terminé")
+        log.info("wireguard_ha_slave_check terminé - lien KO")
 
     finally:
         _check_running = False
