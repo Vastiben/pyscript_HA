@@ -5,7 +5,7 @@ Imported by fusionsolar.py and called via task.executor.
 Do NOT use: log.*, state.*, hass.*, task.*, @time_trigger, etc.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import json
@@ -171,7 +171,7 @@ def _normalize(raw, station_dn, logs):
 def fetch(config):
     """
     Entry point called via task.executor from pyscript.
-    Returns a FusionSolarResult (pure Python dataclass).
+    Returns a plain dict (not a dataclass) so pyscript can call .get() on it.
     """
     logs = []
     cookie = config["cookie"]
@@ -195,4 +195,26 @@ def fetch(config):
     logs.append(f"DEBUG client HTTP initialisé pour {base_url}")
 
     raw = _poll_raw(base_url, station_dn, session, 20, logs)
-    return _normalize(raw, station_dn, logs)
+    result = _normalize(raw, station_dn, logs)
+
+    # Return plain dict — pyscript can call .get() on it safely
+    return {
+        "ts_utc":               result.ts_utc,
+        "plant_dn":             result.plant_dn,
+        "status":               result.status,
+        "error":                result.error,
+        "pv_power_kw":          result.pv_power_kw,
+        "battery_soc_percent":  result.battery_soc_percent,
+        "battery_power_kw":     result.battery_power_kw,
+        "battery_charge_kw":    result.battery_charge_kw,
+        "battery_discharge_kw": result.battery_discharge_kw,
+        "grid_power_kw":        result.grid_power_kw,
+        "grid_import_kw":       result.grid_import_kw,
+        "grid_export_kw":       result.grid_export_kw,
+        "load_power_kw":        result.load_power_kw,
+        "daily_energy_kwh":     result.daily_energy_kwh,
+        "monthly_energy_kwh":   result.monthly_energy_kwh,
+        "yearly_energy_kwh":    result.yearly_energy_kwh,
+        "total_energy_kwh":     result.total_energy_kwh,
+        "logs":                 result.logs,
+    }
