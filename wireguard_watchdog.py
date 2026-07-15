@@ -7,16 +7,15 @@ TARGET_NAME      = "ha-slave"
 TARGET_IP        = "172.27.66.3"
 WG_ADDON_SLUG    = "a0d7b954_wireguard"
 
-# ── Paramètres configurables ───────────────────────────────────────────────────
+# ── Paramètres configurables ─────────────────────────────────────────────────────────
 CHECK_CRON_MIN    = 5    # fréquence du cron (minutes)
 CYCLE_MARGIN_SEC  = 30   # marge de sécurité avant le prochain trigger (secondes)
 TEST_INTERVAL_SEC = 30   # intervalle entre chaque sous-test (secondes)
-# ──────────────────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
 
 # Tout le reste se calcule automatiquement
 CHECK_INTERVAL_SEC   = CHECK_CRON_MIN * 60
 USABLE_SEC           = CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC
-PING_TIMEOUT         = TEST_INTERVAL_SEC
 MAX_ATTEMPTS         = USABLE_SEC // TEST_INTERVAL_SEC
 CHECK_CRON           = f"cron(*/{CHECK_CRON_MIN} * * * *)"
 WG_HANDSHAKE_MAX_AGE = CHECK_INTERVAL_SEC
@@ -28,22 +27,13 @@ link_down      = False
 _check_running = False
 
 
-def _ping_once(ip):
-    result = subprocess.run(
-        ["ping", "-c", "1", "-W", str(PING_TIMEOUT), ip],
-        capture_output=True,
-        text=True
-    )
-    return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
-
-
-def _check_handshake():
-    """Lit les logs de l'addon WireGuard via l'API Supervisor
-    et extrait l'âge du dernier handshake pour TARGET_IP."""
+def _get_wireguard_stats():
+    """Lit les logs de l'addon WireGuard via l'API Supervisor.
+    Retourne (handshake_ok, hs_detail, transfer_ok, transfer_detail)."""
     try:
         token = os.environ.get("SUPERVISOR_TOKEN", "")
         if not token:
-            return False, "SUPERVISOR_TOKEN absent"
+            return False, "SUPERVISOR_TOKEN absent", False, "SUPERVISOR_TOKEN absent"
 
         result = subprocess.run(
             [
@@ -54,17 +44,20 @@ def _check_handshake():
             capture_output=True, text=True, timeout=10
         )
         if result.returncode != 0:
-            return False, "API Supervisor inaccessible"
+            return False, "API Supervisor inaccessible", False, "API Supervisor inaccessible"
 
         lines = result.stdout.splitlines()
+
+        # ── Handshake ──
+        handshake_ok = False
+        hs_detail = f"peer {TARGET_IP} non trouvé"
         found_peer = False
         for line in lines:
             if "allowed ips" in line and TARGET_IP in line:
                 found_peer = True
                 continue
             if found_peer and "latest handshake" in line:
-                minutes = 0
-                seconds = 0
+                minutes, seconds = 0, 0
                 m = re.search(r'(\d+) minute', line)
                 if m:
                     minutes = int(m.group(1))
@@ -73,17 +66,39 @@ def _check_handshake():
                     seconds = int(s.group(1))
                 age = minutes * 60 + seconds
                 if age < WG_HANDSHAKE_MAX_AGE:
-                    return True, f"handshake il y a {age}s"
-                return False, f"handshake trop ancien ({age}s)"
+                    handshake_ok = True
+                    hs_detail = f"handshake il y a {age}s"
+                else:
+                    hs_detail = f"handshake trop ancien ({age}s, max={WG_HANDSHAKE_MAX_AGE}s)"
+                break
             if found_peer and "allowed ips" in line and TARGET_IP not in line:
                 found_peer = False
 
-        return False, f"peer {TARGET_IP} non trouvé dans les logs"
+        # ── Transfer (rx + tx > 0) ──
+        transfer_ok = False
+        transfer_detail = "transfer non trouvé"
+        for line in reversed(lines):
+            if "transfer:" in line:
+                m = re.search(
+                    r"transfer:\s*([\d.]+)\s*(\w+)\s*received,\s*([\d.]+)\s*(\w+)\s*sent",
+                    line
+                )
+                if m:
+                    def to_bytes(val, unit):
+                        factors = {"B": 1, "KIB": 1024, "MIB": 1024**2, "GIB": 1024**3}
+                        return int(float(val) * factors.get(unit.upper(), 1))
+                    rx = to_bytes(m.group(1), m.group(2))
+                    tx = to_bytes(m.group(3), m.group(4))
+                    transfer_detail = f"rx={m.group(1)} {m.group(2)} | tx={m.group(3)} {m.group(4)}"
+                    transfer_ok = rx > 0 and tx > 0
+                break
+
+        return handshake_ok, hs_detail, transfer_ok, transfer_detail
 
     except FileNotFoundError:
-        return False, "curl non disponible"
+        return False, "curl non disponible", False, "curl non disponible"
     except Exception as e:
-        return False, f"erreur supervisor: {e}"
+        return False, f"erreur supervisor: {e}", False, f"erreur supervisor: {e}"
 
 
 def _send_telegram(message):
@@ -131,7 +146,6 @@ def _set_status(status, details=""):
         new_attributes={
             "friendly_name": "WireGuard ha-slave",
             "target_ip": TARGET_IP,
-            "ping_timeout": PING_TIMEOUT,
             "max_attempts": MAX_ATTEMPTS,
             "last_check": datetime.now().isoformat(),
             "details": details,
@@ -150,42 +164,45 @@ def _run_check(source="cron"):
     try:
         log.info(
             f"▶ wireguard_ha_slave_check démarré ({source}) | "
-            f"attempts={MAX_ATTEMPTS} interval={TEST_INTERVAL_SEC}s "
-            f"ping_timeout={PING_TIMEOUT}s handshake_max={WG_HANDSHAKE_MAX_AGE}s"
+            f"critères: handshake<{WG_HANDSHAKE_MAX_AGE}s + transfer rx/tx>0 | "
+            f"attempts={MAX_ATTEMPTS} interval={TEST_INTERVAL_SEC}s"
         )
 
         details = ""
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            hs_ok,   hs_detail               = _check_handshake()
-            ping_ok, ping_stdout, ping_stderr = _ping_once(TARGET_IP)
+            hs_ok, hs_detail, tr_ok, tr_detail = _get_wireguard_stats()
 
             log.debug(
                 f"  tentative {attempt}/{MAX_ATTEMPTS} | "
-                f"handshake={'OK' if hs_ok else hs_detail} | "
-                f"ping={'OK' if ping_ok else 'KO'}"
+                f"handshake={'OK' if hs_ok else 'KO'} ({hs_detail}) | "
+                f"transfer={'OK' if tr_ok else 'KO'} ({tr_detail})"
             )
 
-            # UP uniquement si handshake ET ping sont OK
-            if hs_ok and ping_ok:
+            # UP uniquement si handshake ET transfer sont OK
+            if hs_ok and tr_ok:
                 if link_down:
                     msg = (
                         f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
                         f"Tentative : {attempt}/{MAX_ATTEMPTS}\n"
-                        f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
+                        f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
+                        f"Détail : {hs_detail} | {tr_detail}"
                     )
                     log.warning(f"✅ {msg}")
                     _clear_down_notification()
                     _notify_up(msg)
 
                 link_down = False
-                _set_status("up", f"handshake=OK ({hs_detail}) | ping=OK")
-                log.info(f"✅ wireguard_ha_slave_check terminé - lien OK (tentative {attempt}/{MAX_ATTEMPTS})")
+                _set_status("up", f"{hs_detail} | {tr_detail}")
+                log.info(
+                    f"✅ wireguard_ha_slave_check terminé - lien OK "
+                    f"(tentative {attempt}/{MAX_ATTEMPTS}) | {hs_detail} | {tr_detail}"
+                )
                 return
 
             # L'un ou les deux KO → on continue la boucle
             details = (
-                f"handshake={'OK' if hs_ok else hs_detail} | "
-                f"ping={'OK' if ping_ok else (ping_stderr or ping_stdout or 'KO')}"
+                f"handshake={'OK' if hs_ok else 'KO'} ({hs_detail}) | "
+                f"transfer={'OK' if tr_ok else 'KO'} ({tr_detail})"
             )
             _set_status("down", details)
             log.warning(f"⚠ tentative {attempt}/{MAX_ATTEMPTS} KO | {details}")
