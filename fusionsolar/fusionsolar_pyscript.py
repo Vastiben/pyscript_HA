@@ -1,5 +1,5 @@
 """
-Home Assistant pyscript: FusionSolar cookie-based sensors.
+pyscript: FusionSolar cookie-based sensors.
 
 Put this file as:
   /config/pyscript/fusionsolar.py
@@ -107,10 +107,15 @@ class FusionSolarWebClient:
             "Origin": self.base_url,
             "X-Requested-With": "XMLHttpRequest",
         })
+        log.debug(f"FusionSolar: client initialisé — base_url={self.base_url} station={self.station_dn}")
 
     def request_json(self, method, path, params=None, json_body=None):
-        r = self.s.request(method, self.base_url + path, params=params, json=json_body, timeout=self.timeout)
+        url = self.base_url + path
+        log.debug(f"FusionSolar: → {method} {path} params={params}")
+        r = self.s.request(method, url, params=params, json=json_body, timeout=self.timeout)
+        log.debug(f"FusionSolar: ← HTTP {r.status_code} ({len(r.content)} bytes) pour {path}")
         if r.status_code in (401, 403):
+            log.error(f"FusionSolar: 🔒 cookie/session rejeté — HTTP {r.status_code} sur {path}. Recapturer le cookie dans Edge/Chrome.")
             raise RuntimeError(f"FusionSolar cookie/session rejected: HTTP {r.status_code}")
         r.raise_for_status()
         return r.json()
@@ -118,34 +123,57 @@ class FusionSolarWebClient:
     def poll_raw(self):
         raw = {}
         endpoints = {
-            "energy_flow": ("GET", "/rest/pvms/web/station/v1/overview/energy-flow"),
-            "energy_balance": ("GET", "/rest/pvms/web/station/v1/overview/energy-balance"),
-            "station_real_kpi": ("GET", "/rest/pvms/web/station/v1/overview/station-real-kpi"),
-            "station_detail": ("GET", "/rest/pvms/web/station/v1/overview/station-detail"),
+            "energy_flow":        ("GET", "/rest/pvms/web/station/v1/overview/energy-flow"),
+            "energy_balance":     ("GET", "/rest/pvms/web/station/v1/overview/energy-balance"),
+            "station_real_kpi":   ("GET", "/rest/pvms/web/station/v1/overview/station-real-kpi"),
+            "station_detail":     ("GET", "/rest/pvms/web/station/v1/overview/station-detail"),
         }
+        log.info(f"FusionSolar: interrogation de {len(endpoints)} endpoints pour station={self.station_dn}")
+        ok_count = 0
         for name, (method, path) in endpoints.items():
             try:
                 raw[name] = self.request_json(method, path, params={"stationDn": self.station_dn})
+                ok_count += 1
+                log.debug(f"FusionSolar: endpoint '{name}' ✅ OK")
             except Exception as e:
                 raw[name] = {"_error": str(e)}
+                log.warning(f"FusionSolar: endpoint '{name}' ❌ ERREUR — {e}")
+        log.info(f"FusionSolar: poll terminé — {ok_count}/{len(endpoints)} endpoints réussis")
         return raw
 
 
 def normalize_payload(raw, station_dn):
-    pv_kw = _find_by_key_contains(raw, ["pvPower", "productPower", "productionPower", "realTimePower", "activePower"])
-    battery_soc = _find_by_key_contains(raw, ["batterySoc", "stateOfCharge", "soc"])
-    battery_power = _find_by_key_contains(raw, ["batteryPower", "chargeDischargePower", "chargePower", "dischargePower"])
-    grid_power = _find_by_key_contains(raw, ["gridPower", "meterPower", "onGridPower", "disGridPower"])
-    load_power = _find_by_key_contains(raw, ["loadPower", "usePower", "consumptionPower"])
-    daily = _find_by_key_contains(raw, ["dailyEnergy", "dayEnergy", "totalCurrentDayEnergy", "totalProductPower"])
-    monthly = _find_by_key_contains(raw, ["monthEnergy", "monthlyEnergy", "totalCurrentMonthEnergy"])
-    yearly = _find_by_key_contains(raw, ["yearEnergy", "yearlyEnergy", "totalCurrentYearEnergy"])
-    total = _find_by_key_contains(raw, ["cumulativeEnergy", "totalEnergy", "lifetimeEnergy"])
+    log.debug("FusionSolar: normalisation du payload brut...")
 
-    battery_charge_kw = max(-battery_power, 0.0) if battery_power is not None else None
-    battery_discharge_kw = max(battery_power, 0.0) if battery_power is not None else None
-    grid_import_kw = max(-grid_power, 0.0) if grid_power is not None else None
-    grid_export_kw = max(grid_power, 0.0) if grid_power is not None else None
+    pv_kw        = _find_by_key_contains(raw, ["pvPower", "productPower", "productionPower", "realTimePower", "activePower"])
+    battery_soc  = _find_by_key_contains(raw, ["batterySoc", "stateOfCharge", "soc"])
+    battery_power= _find_by_key_contains(raw, ["batteryPower", "chargeDischargePower", "chargePower", "dischargePower"])
+    grid_power   = _find_by_key_contains(raw, ["gridPower", "meterPower", "onGridPower", "disGridPower"])
+    load_power   = _find_by_key_contains(raw, ["loadPower", "usePower", "consumptionPower"])
+    daily        = _find_by_key_contains(raw, ["dailyEnergy", "dayEnergy", "totalCurrentDayEnergy", "totalProductPower"])
+    monthly      = _find_by_key_contains(raw, ["monthEnergy", "monthlyEnergy", "totalCurrentMonthEnergy"])
+    yearly       = _find_by_key_contains(raw, ["yearEnergy", "yearlyEnergy", "totalCurrentYearEnergy"])
+    total        = _find_by_key_contains(raw, ["cumulativeEnergy", "totalEnergy", "lifetimeEnergy"])
+
+    log.debug(
+        f"FusionSolar: valeurs extraites — "
+        f"pv={pv_kw}kW, soc={battery_soc}%, bat={battery_power}kW, "
+        f"grid={grid_power}kW, load={load_power}kW, "
+        f"daily={daily}kWh, monthly={monthly}kWh, yearly={yearly}kWh, total={total}kWh"
+    )
+
+    # Avertissement si les métriques essentielles sont None
+    if pv_kw is None:
+        log.warning("FusionSolar: ⚠️ pv_power_kw est None — clé non trouvée dans le payload. Vérifier les endpoints actifs.")
+    if battery_soc is None:
+        log.warning("FusionSolar: ⚠️ battery_soc_percent est None — batterie non détectée ou clé absente.")
+    if grid_power is None:
+        log.warning("FusionSolar: ⚠️ grid_power_kw est None — compteur réseau non détecté.")
+
+    battery_charge_kw    = max(-battery_power, 0.0) if battery_power is not None else None
+    battery_discharge_kw = max(battery_power, 0.0)  if battery_power is not None else None
+    grid_import_kw       = max(-grid_power, 0.0)    if grid_power is not None else None
+    grid_export_kw       = max(grid_power, 0.0)     if grid_power is not None else None
 
     errors = {k: v.get("_error") for k, v in raw.items() if isinstance(v, dict) and v.get("_error")}
     status = "ok"
@@ -153,9 +181,13 @@ def normalize_payload(raw, station_dn):
     if errors and len(errors) == len(raw):
         status = "error"
         err = json.dumps(errors, ensure_ascii=False)
+        log.error(f"FusionSolar: ❌ tous les endpoints ont échoué — {err}")
     elif errors:
         status = "partial"
         err = json.dumps(errors, ensure_ascii=False)
+        log.warning(f"FusionSolar: ⚠️ status=partial, endpoints en erreur: {list(errors.keys())}")
+    else:
+        log.debug("FusionSolar: normalisation OK, status=ok")
 
     return FusionSolarMetrics(
         ts_utc=datetime.now(timezone.utc).isoformat(),
@@ -182,7 +214,9 @@ def normalize_payload(raw, station_dn):
 def fetch_fusionsolar_sync():
     cookie = CONFIG["cookie"]
     if not cookie or cookie == "PASTE_EDGE_NETWORK_COOKIE_HERE":
+        log.error("FusionSolar: ❌ cookie manquant — éditer /config/pyscript/fusionsolar.py et coller le Cookie header.")
         raise RuntimeError("FusionSolar cookie missing: edit /config/pyscript/fusionsolar.py and paste the Cookie header.")
+    log.debug(f"FusionSolar: cookie présent ({len(cookie)} caractères), démarrage du client HTTP")
     client = FusionSolarWebClient(CONFIG["base_url"], CONFIG["station_dn"], cookie, CONFIG.get("referer"))
     raw = client.poll_raw()
     return asdict(normalize_payload(raw, CONFIG["station_dn"]))
@@ -190,6 +224,7 @@ def fetch_fusionsolar_sync():
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None, attrs=None):
     if value is None:
+        log.debug(f"FusionSolar: sensor {entity_id} ignoré (valeur None)")
         return
     a = dict(attrs or {})
     if unit:
@@ -203,35 +238,49 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
     except Exception:
         pass
     state.set(entity_id, value=value, new_attributes=a)
+    log.debug(f"FusionSolar: ✅ {entity_id} = {value} {unit or ''}")
 
 
 @time_trigger(CONFIG["update_every"])
 def update_fusionsolar_sensors():
+    log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
     try:
         data = task.executor(fetch_fusionsolar_sync)
+        status = data.get("status", "ok")
+        log.info(
+            f"FusionSolar: données reçues — status={status} | "
+            f"PV={data.get('pv_power_kw')}kW | SOC={data.get('battery_soc_percent')}% | "
+            f"grid_import={data.get('grid_import_kw')}kW | grid_export={data.get('grid_export_kw')}kW | "
+            f"load={data.get('load_power_kw')}kW | daily={data.get('daily_energy_kwh')}kWh"
+        )
+
         attrs = {
-            "plant_dn": data.get("plant_dn"),
+            "plant_dn":        data.get("plant_dn"),
             "last_update_utc": data.get("ts_utc"),
-            "source": "FusionSolar web cookie session",
-            "status": data.get("status"),
+            "source":          "FusionSolar web cookie session",
+            "status":          status,
         }
         if data.get("error"):
             attrs["error"] = data.get("error")
+            log.warning(f"FusionSolar: erreurs partielles dans les attrs — {data.get('error')}")
 
-        _set_sensor("sensor.fusionsolar_pv_power", data.get("pv_power_kw"), "kW", "power", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_load_power", data.get("load_power_kw"), "kW", "power", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_grid_import_power", data.get("grid_import_kw"), "kW", "power", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_grid_export_power", data.get("grid_export_kw"), "kW", "power", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_battery_soc", data.get("battery_soc_percent"), "%", "battery", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_battery_charge_power", data.get("battery_charge_kw"), "kW", "power", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_battery_discharge_power", data.get("battery_discharge_kw"), "kW", "power", "measurement", attrs)
-        _set_sensor("sensor.fusionsolar_daily_energy", data.get("daily_energy_kwh"), "kWh", "energy", "total_increasing", attrs)
-        _set_sensor("sensor.fusionsolar_monthly_energy", data.get("monthly_energy_kwh"), "kWh", "energy", "total_increasing", attrs)
-        _set_sensor("sensor.fusionsolar_yearly_energy", data.get("yearly_energy_kwh"), "kWh", "energy", "total_increasing", attrs)
-        _set_sensor("sensor.fusionsolar_total_energy", data.get("total_energy_kwh"), "kWh", "energy", "total_increasing", attrs)
+        log.debug("FusionSolar: mise à jour des sensors Home Assistant...")
+        _set_sensor("sensor.fusionsolar_pv_power",              data.get("pv_power_kw"),         "kW",  "power",   "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_load_power",            data.get("load_power_kw"),        "kW",  "power",   "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_grid_import_power",     data.get("grid_import_kw"),       "kW",  "power",   "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_grid_export_power",     data.get("grid_export_kw"),       "kW",  "power",   "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_battery_soc",           data.get("battery_soc_percent"),  "%",   "battery", "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_battery_charge_power",  data.get("battery_charge_kw"),    "kW",  "power",   "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_battery_discharge_power",data.get("battery_discharge_kw"),"kW",  "power",   "measurement",      attrs)
+        _set_sensor("sensor.fusionsolar_daily_energy",          data.get("daily_energy_kwh"),     "kWh", "energy",  "total_increasing", attrs)
+        _set_sensor("sensor.fusionsolar_monthly_energy",        data.get("monthly_energy_kwh"),   "kWh", "energy",  "total_increasing", attrs)
+        _set_sensor("sensor.fusionsolar_yearly_energy",         data.get("yearly_energy_kwh"),    "kWh", "energy",  "total_increasing", attrs)
+        _set_sensor("sensor.fusionsolar_total_energy",          data.get("total_energy_kwh"),     "kWh", "energy",  "total_increasing", attrs)
 
-        state.set("sensor.fusionsolar_status", value=data.get("status", "ok"), new_attributes=attrs)
-        state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(), new_attributes=attrs)
+        state.set("sensor.fusionsolar_status",       value=status,                                     new_attributes=attrs)
+        state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(),     new_attributes=attrs)
+        log.info(f"FusionSolar: ✅ update complet — {sum(1 for k in ['pv_power_kw','load_power_kw','grid_import_kw','battery_soc_percent'] if data.get(k) is not None)}/4 métriques principales disponibles")
+
     except Exception as e:
+        log.error(f"FusionSolar: ❌ update_fusionsolar_sensors EXCEPTION — {type(e).__name__}: {e}")
         state.set("sensor.fusionsolar_status", value="error", new_attributes={"error": str(e), "plant_dn": CONFIG.get("station_dn")})
-        log.error(f"FusionSolar update failed: {e}")
