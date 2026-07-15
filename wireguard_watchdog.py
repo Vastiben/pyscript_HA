@@ -1,9 +1,11 @@
 import subprocess
+import os
+import re
 from datetime import datetime
 
 TARGET_NAME      = "ha-slave"
 TARGET_IP        = "172.27.66.3"
-WG_INTERFACE     = "wg0"
+WG_ADDON_SLUG    = "a0d7b954_wireguard"
 
 # ── Paramètres configurables ───────────────────────────────────────────────────
 CHECK_CRON_MIN    = 5    # fréquence du cron (minutes)
@@ -36,21 +38,55 @@ def _ping_once(ip):
 
 
 def _check_handshake():
-    result = subprocess.run(
-        ["wg", "show", WG_INTERFACE, "latest-handshakes"],
-        capture_output=True,
-        text=True
-    )
-    if result.returncode != 0:
-        return False, "wg show échoué"
-    for line in result.stdout.strip().splitlines():
-        parts = line.split()
-        if len(parts) == 2:
-            age = int(datetime.now().timestamp()) - int(parts[1])
-            if age < WG_HANDSHAKE_MAX_AGE:
-                return True, f"handshake il y a {age}s"
-            return False, f"handshake trop ancien ({age}s)"
-    return False, "aucun handshake trouvé"
+    """Lit les logs de l'addon WireGuard via l'API Supervisor
+    et extrait l'âge du dernier handshake pour TARGET_IP."""
+    try:
+        token = os.environ.get("SUPERVISOR_TOKEN", "")
+        if not token:
+            return False, "SUPERVISOR_TOKEN absent"
+
+        result = subprocess.run(
+            [
+                "curl", "-sf",
+                "-H", f"Authorization: Bearer {token}",
+                f"http://supervisor/addons/{WG_ADDON_SLUG}/logs"
+            ],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return False, "API Supervisor inaccessible"
+
+        lines = result.stdout.splitlines()
+        found_peer = False
+        for line in lines:
+            # Dès qu'on trouve le peer ciblé par son IP
+            if "allowed ips" in line and TARGET_IP in line:
+                found_peer = True
+                continue
+            # La ligne handshake suit immédiatement le bloc du peer
+            if found_peer and "latest handshake" in line:
+                minutes = 0
+                seconds = 0
+                m = re.search(r'(\d+) minute', line)
+                if m:
+                    minutes = int(m.group(1))
+                s = re.search(r'(\d+) second', line)
+                if s:
+                    seconds = int(s.group(1))
+                age = minutes * 60 + seconds
+                if age < WG_HANDSHAKE_MAX_AGE:
+                    return True, f"handshake il y a {age}s"
+                return False, f"handshake trop ancien ({age}s)"
+            # Reset si on entre dans un autre peer sans avoir trouvé le handshake
+            if found_peer and "allowed ips" in line and TARGET_IP not in line:
+                found_peer = False
+
+        return False, f"peer {TARGET_IP} non trouvé dans les logs"
+
+    except FileNotFoundError:
+        return False, "curl non disponible"
+    except Exception as e:
+        return False, f"erreur supervisor: {e}"
 
 
 def _send_telegram(message):
@@ -128,12 +164,11 @@ def _run_check(source="cron"):
 
             log.debug(
                 f"  tentative {attempt}/{MAX_ATTEMPTS} | "
-                f"handshake={'OK' if hs_ok else 'KO'} | "
+                f"handshake={'OK' if hs_ok else hs_detail} | "
                 f"ping={'OK' if ping_ok else 'KO'}"
             )
 
             if hs_ok or ping_ok:
-                # Au moins un des deux OK → lien considéré UP
                 if link_down:
                     msg = (
                         f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
@@ -149,7 +184,6 @@ def _run_check(source="cron"):
                 log.info(f"✅ wireguard_ha_slave_check terminé - lien OK (tentative {attempt}/{MAX_ATTEMPTS})")
                 return
 
-            # Les deux KO → on attend et on retente (sauf dernière tentative)
             details = f"handshake={hs_detail} | ping={ping_stderr or ping_stdout or 'KO'}"
             _set_status("down", details)
             log.warning(f"⚠ tentative {attempt}/{MAX_ATTEMPTS} KO | {details}")
