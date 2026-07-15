@@ -134,11 +134,14 @@ def update_fusionsolar_sensors():
 
         state.set("sensor.fusionsolar_status",       value=status,                                  new_attributes=attrs)
         state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(),  new_attributes=attrs)
-        log.info(
-            f"FusionSolar: ✅ update complet — "
-            f"{sum(1 for k in ['pv_power_kw','load_power_kw','grid_import_kw','battery_soc_percent'] if data.get(k) is not None)}/4 "
-            f"métriques principales disponibles"
-        )
+
+        # Explicit count — pyscript does not support generator expressions (ast_generatorexp)
+        metrics_ok = 0
+        if data.get("pv_power_kw")      is not None: metrics_ok += 1
+        if data.get("load_power_kw")    is not None: metrics_ok += 1
+        if data.get("grid_import_kw")   is not None: metrics_ok += 1
+        if data.get("battery_soc_percent") is not None: metrics_ok += 1
+        log.info(f"FusionSolar: ✅ update complet — {metrics_ok}/4 métriques principales disponibles")
 
     except Exception as e:
         log.error(f"FusionSolar: ❌ EXCEPTION — {type(e).__name__}: {e}")
