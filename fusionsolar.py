@@ -15,7 +15,7 @@ Security:
 
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import json
 import requests
 
@@ -50,6 +50,8 @@ class FusionSolarMetrics:
     yearly_energy_kwh: Optional[float] = None
     total_energy_kwh: Optional[float] = None
     raw: Optional[Dict[str, Any]] = None
+    # Logs collected during executor (plain Python context, no pyscript log.*)
+    _exec_logs: Optional[List[str]] = None
 
 
 def _to_float(value):
@@ -92,6 +94,7 @@ def _find_by_key_contains(obj, candidates):
     return None
 
 
+# ── Pure Python class: NO log.* calls allowed here ──────────────────────────
 class FusionSolarWebClient:
     def __init__(self, base_url, station_dn, cookie, referer=None, timeout=20):
         self.base_url = base_url.rstrip("/")
@@ -107,20 +110,17 @@ class FusionSolarWebClient:
             "Origin": self.base_url,
             "X-Requested-With": "XMLHttpRequest",
         })
-        log.debug(f"FusionSolar: client initialisé — base_url={self.base_url} station={self.station_dn}")
 
     def request_json(self, method, path, params=None, json_body=None):
         url = self.base_url + path
-        log.debug(f"FusionSolar: → {method} {path} params={params}")
         r = self.s.request(method, url, params=params, json=json_body, timeout=self.timeout)
-        log.debug(f"FusionSolar: ← HTTP {r.status_code} ({len(r.content)} bytes) pour {path}")
         if r.status_code in (401, 403):
-            log.error(f"FusionSolar: 🔒 cookie/session rejeté — HTTP {r.status_code} sur {path}. Recapturer le cookie dans Edge/Chrome.")
-            raise RuntimeError(f"FusionSolar cookie/session rejected: HTTP {r.status_code}")
+            raise RuntimeError(f"FusionSolar cookie/session rejected: HTTP {r.status_code} on {path}")
         r.raise_for_status()
         return r.json()
 
-    def poll_raw(self):
+    def poll_raw(self, exec_logs):
+        """exec_logs: list to collect log strings (plain Python, no pyscript log.*)"""
         raw = {}
         endpoints = {
             "energy_flow":      ("GET", "/rest/pvms/web/station/v1/overview/energy-flow"),
@@ -128,23 +128,22 @@ class FusionSolarWebClient:
             "station_real_kpi": ("GET", "/rest/pvms/web/station/v1/overview/station-real-kpi"),
             "station_detail":   ("GET", "/rest/pvms/web/station/v1/overview/station-detail"),
         }
-        log.info(f"FusionSolar: interrogation de {len(endpoints)} endpoints pour station={self.station_dn}")
+        exec_logs.append(f"INFO: poll {len(endpoints)} endpoints pour station={self.station_dn}")
         ok_count = 0
         for name, (method, path) in endpoints.items():
             try:
                 raw[name] = self.request_json(method, path, params={"stationDn": self.station_dn})
                 ok_count += 1
-                log.debug(f"FusionSolar: endpoint '{name}' ✅ OK")
+                exec_logs.append(f"DEBUG: endpoint '{name}' OK")
             except Exception as e:
                 raw[name] = {"_error": str(e)}
-                log.warning(f"FusionSolar: endpoint '{name}' ❌ ERREUR — {e}")
-        log.info(f"FusionSolar: poll terminé — {ok_count}/{len(endpoints)} endpoints réussis")
+                exec_logs.append(f"WARNING: endpoint '{name}' ERREUR — {e}")
+        exec_logs.append(f"INFO: poll terminé — {ok_count}/{len(endpoints)} endpoints réussis")
         return raw
 
 
-def normalize_payload(raw, station_dn):
-    log.debug("FusionSolar: normalisation du payload brut...")
-
+def normalize_payload(raw, station_dn, exec_logs):
+    """Pure Python — no pyscript log.* calls."""
     pv_kw         = _find_by_key_contains(raw, ["pvPower", "productPower", "productionPower", "realTimePower", "activePower"])
     battery_soc   = _find_by_key_contains(raw, ["batterySoc", "stateOfCharge", "soc"])
     battery_power = _find_by_key_contains(raw, ["batteryPower", "chargeDischargePower", "chargePower", "dischargePower"])
@@ -155,19 +154,18 @@ def normalize_payload(raw, station_dn):
     yearly        = _find_by_key_contains(raw, ["yearEnergy", "yearlyEnergy", "totalCurrentYearEnergy"])
     total         = _find_by_key_contains(raw, ["cumulativeEnergy", "totalEnergy", "lifetimeEnergy"])
 
-    log.debug(
-        f"FusionSolar: valeurs extraites — "
-        f"pv={pv_kw}kW, soc={battery_soc}%, bat={battery_power}kW, "
-        f"grid={grid_power}kW, load={load_power}kW, "
-        f"daily={daily}kWh, monthly={monthly}kWh, yearly={yearly}kWh, total={total}kWh"
+    exec_logs.append(
+        f"DEBUG: valeurs extraites — pv={pv_kw}kW, soc={battery_soc}%, bat={battery_power}kW, "
+        f"grid={grid_power}kW, load={load_power}kW, daily={daily}kWh, monthly={monthly}kWh, "
+        f"yearly={yearly}kWh, total={total}kWh"
     )
 
     if pv_kw is None:
-        log.warning("FusionSolar: ⚠️ pv_power_kw est None — clé non trouvée dans le payload. Vérifier les endpoints actifs.")
+        exec_logs.append("WARNING: pv_power_kw est None — clé non trouvée dans le payload")
     if battery_soc is None:
-        log.warning("FusionSolar: ⚠️ battery_soc_percent est None — batterie non détectée ou clé absente.")
+        exec_logs.append("WARNING: battery_soc_percent est None — batterie non détectée ou clé absente")
     if grid_power is None:
-        log.warning("FusionSolar: ⚠️ grid_power_kw est None — compteur réseau non détecté.")
+        exec_logs.append("WARNING: grid_power_kw est None — compteur réseau non détecté")
 
     battery_charge_kw    = max(-battery_power, 0.0) if battery_power is not None else None
     battery_discharge_kw = max(battery_power, 0.0)  if battery_power is not None else None
@@ -180,13 +178,13 @@ def normalize_payload(raw, station_dn):
     if errors and len(errors) == len(raw):
         status = "error"
         err = json.dumps(errors, ensure_ascii=False)
-        log.error(f"FusionSolar: ❌ tous les endpoints ont échoué — {err}")
+        exec_logs.append(f"ERROR: tous les endpoints ont échoué — {err}")
     elif errors:
         status = "partial"
         err = json.dumps(errors, ensure_ascii=False)
-        log.warning(f"FusionSolar: ⚠️ status=partial, endpoints en erreur: {list(errors.keys())}")
+        exec_logs.append(f"WARNING: status=partial, endpoints en erreur: {list(errors.keys())}")
     else:
-        log.debug("FusionSolar: normalisation OK, status=ok")
+        exec_logs.append("DEBUG: normalisation OK, status=ok")
 
     return FusionSolarMetrics(
         ts_utc=datetime.now(timezone.utc).isoformat(),
@@ -207,21 +205,25 @@ def normalize_payload(raw, station_dn):
         yearly_energy_kwh=yearly,
         total_energy_kwh=total,
         raw=raw,
+        _exec_logs=exec_logs,
     )
 
 
 def fetch_fusionsolar_sync():
+    """Pure Python function — safe to call from task.executor. No pyscript log.* allowed."""
+    exec_logs = []
     cookie = CONFIG["cookie"]
     if not cookie or cookie == "PASTE_EDGE_NETWORK_COOKIE_HERE":
-        log.error("FusionSolar: ❌ cookie manquant — éditer /config/pyscript/fusionsolar.py et coller le Cookie header.")
         raise RuntimeError("FusionSolar cookie missing: edit /config/pyscript/fusionsolar.py and paste the Cookie header.")
-    log.debug(f"FusionSolar: cookie présent ({len(cookie)} caractères), démarrage du client HTTP")
+    exec_logs.append(f"DEBUG: cookie présent ({len(cookie)} caractères), démarrage du client HTTP")
     client = FusionSolarWebClient(CONFIG["base_url"], CONFIG["station_dn"], cookie, CONFIG.get("referer"))
-    raw = client.poll_raw()
-    return asdict(normalize_payload(raw, CONFIG["station_dn"]))
+    raw = client.poll_raw(exec_logs)
+    metrics = normalize_payload(raw, CONFIG["station_dn"], exec_logs)
+    return asdict(metrics)
 
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None, attrs=None):
+    """Called from pyscript context — log.* is allowed here."""
     if value is None:
         log.debug(f"FusionSolar: sensor {entity_id} ignoré (valeur None)")
         return
@@ -240,11 +242,28 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
     log.debug(f"FusionSolar: ✅ {entity_id} = {value} {unit or ''}")
 
 
+def _flush_exec_logs(exec_logs):
+    """Replay logs collected during task.executor into pyscript log.*"""
+    for entry in (exec_logs or []):
+        if entry.startswith("ERROR:"):
+            log.error(f"FusionSolar: {entry[7:]}")
+        elif entry.startswith("WARNING:"):
+            log.warning(f"FusionSolar: {entry[9:]}")
+        elif entry.startswith("INFO:"):
+            log.info(f"FusionSolar: {entry[6:]}")
+        else:
+            log.debug(f"FusionSolar: {entry[7:]}")
+
+
 @time_trigger(CONFIG["update_every"])
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
     try:
         data = task.executor(fetch_fusionsolar_sync)
+
+        # Replay logs from the executor (pure Python) context
+        _flush_exec_logs(data.get("_exec_logs"))
+
         status = data.get("status", "ok")
         log.info(
             f"FusionSolar: données reçues — status={status} | "
@@ -261,7 +280,7 @@ def update_fusionsolar_sensors():
         }
         if data.get("error"):
             attrs["error"] = data.get("error")
-            log.warning(f"FusionSolar: erreurs partielles dans les attrs — {data.get('error')}")
+            log.warning(f"FusionSolar: erreurs partielles — {data.get('error')}")
 
         log.debug("FusionSolar: mise à jour des sensors Home Assistant...")
         _set_sensor("sensor.fusionsolar_pv_power",               data.get("pv_power_kw"),          "kW",  "power",   "measurement",      attrs)
