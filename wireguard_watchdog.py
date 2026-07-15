@@ -1,22 +1,32 @@
 import subprocess
 from datetime import datetime
 
-TARGET_NAME = "ha-slave"
-TARGET_IP = "172.27.66.3"
-CHECK_CRON = "cron(*/1 * * * *)"
-FAIL_THRESHOLD = 10
-PING_RETRIES = 10
-PING_RETRY_DELAY = 10
-TWILIO_TARGET = "+41792763781"
-TELEGRAM_CHAT_ID = 7332342681
+TARGET_NAME           = "ha-slave"
+TARGET_IP             = "172.27.66.3"
+WG_INTERFACE          = "wg0"
 
-fail_count = 0
-link_down = False
+# ── Seul paramètre à modifier pour changer la fréquence ──────────────────────
+CHECK_INTERVAL_SEC    = 5 * 60          # 5 minutes
+PING_TIMEOUT          = 5               # secondes timeout par ping (-W)
+CYCLE_MARGIN_SEC      = 30              # marge avant le prochain trigger
+FAIL_THRESHOLD        = 3              # alarme après N cycles KO consécutifs
+# ─────────────────────────────────────────────────────────────────────────────
+
+CHECK_CRON            = f"cron(*/{CHECK_INTERVAL_SEC // 60} * * * *)"
+WG_HANDSHAKE_MAX_AGE  = CHECK_INTERVAL_SEC
+PING_RETRIES          = (CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC) // PING_TIMEOUT
+
+TWILIO_TARGET         = "+41792763781"
+TELEGRAM_CHAT_ID      = 7332342681
+
+fail_count    = 0
+link_down     = False
+_check_running = False
 
 
 def _ping_once(ip):
     result = subprocess.run(
-        ["ping", "-c", "1", "-W", "2", ip],
+        ["ping", "-c", "1", "-W", str(PING_TIMEOUT), ip],
         capture_output=True,
         text=True
     )
@@ -24,15 +34,30 @@ def _ping_once(ip):
 
 
 def _ping_with_retries(ip):
-    last_stdout, last_stderr = "", ""
     for attempt in range(1, PING_RETRIES + 1):
         ok, stdout, stderr = _ping_once(ip)
         log.debug(f"  ping tentative {attempt}/{PING_RETRIES} -> ok={ok}")
         if ok:
             return True, stdout, stderr
-        last_stdout, last_stderr = stdout, stderr
-        task.sleep(PING_RETRY_DELAY)
-    return False, last_stdout, last_stderr
+    return False, stdout, stderr
+
+
+def _check_handshake():
+    result = subprocess.run(
+        ["wg", "show", WG_INTERFACE, "latest-handshakes"],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        return False, "wg show échoué"
+    for line in result.stdout.strip().splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            age = int(datetime.now().timestamp()) - int(parts[1])
+            if age < WG_HANDSHAKE_MAX_AGE:
+                return True, f"handshake il y a {age}s"
+            return False, f"handshake trop ancien ({age}s)"
+    return False, "aucun handshake trouvé"
 
 
 def _send_telegram(message):
@@ -88,46 +113,60 @@ def _set_status(status, details=""):
 
 
 def _run_check(source="cron"):
-    global fail_count, link_down
+    global fail_count, link_down, _check_running
 
-    task.unique("wireguard_ha_slave_check")
-    log.info(f"▶ wireguard_ha_slave_check démarré ({source})")
-
-    ok, stdout, stderr = _ping_with_retries(TARGET_IP)
-
-    if ok:
-        if link_down:
-            msg = (
-                f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
-                f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
-            )
-            log.warning(f"✅ {msg}")
-            _clear_down_notification()
-            _notify_up(msg)
-
-        fail_count = 0
-        link_down = False
-        _set_status("up", "Ping OK")
-        log.info("✅ wireguard_ha_slave_check terminé - lien OK")
+    if _check_running:
+        log.warning("⚠ wireguard_ha_slave_check déjà en cours, skip")
         return
+    _check_running = True
 
-    fail_count += 1
-    details = stderr or stdout or "Ping KO après retries"
-    _set_status("down", details)
-    log.warning(f"⚠ wireguard_ha_slave_check - échec {fail_count}/{FAIL_THRESHOLD} vers {TARGET_IP}")
+    try:
+        log.info(f"▶ wireguard_ha_slave_check démarré ({source}) | retries={PING_RETRIES} timeout={PING_TIMEOUT}s handshake_max={WG_HANDSHAKE_MAX_AGE}s")
 
-    if fail_count >= FAIL_THRESHOLD and not link_down:
-        msg = (
-            f"Lien WireGuard indisponible vers {TARGET_NAME} ({TARGET_IP}).\n"
-            f"Échecs consécutifs : {fail_count}\n"
-            f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
-            f"Détail : {details}"
+        hs_ok,   hs_detail              = _check_handshake()
+        ping_ok, ping_stdout, ping_stderr = _ping_with_retries(TARGET_IP)
+
+        log.debug(f"  handshake={'OK' if hs_ok else 'KO'} | ping={'OK' if ping_ok else 'KO'}")
+
+        if hs_ok and ping_ok:
+            if link_down:
+                msg = (
+                    f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
+                    f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
+                )
+                log.warning(f"✅ {msg}")
+                _clear_down_notification()
+                _notify_up(msg)
+            fail_count = 0
+            link_down  = False
+            _set_status("up", f"ping OK | {hs_detail}")
+            log.info("✅ wireguard_ha_slave_check terminé - lien OK")
+            return
+
+        # Au moins un des deux a échoué
+        fail_count += 1
+        details = (
+            f"handshake={'OK' if hs_ok else hs_detail} | "
+            f"ping={'OK' if ping_ok else (ping_stderr or ping_stdout or 'KO')}"
         )
-        log.error(f"❌ {msg}")
-        _notify_down(msg)
-        link_down = True
+        _set_status("down", details)
+        log.warning(f"⚠ wireguard_ha_slave_check - échec {fail_count}/{FAIL_THRESHOLD} | {details}")
 
-    log.info("✅ wireguard_ha_slave_check terminé")
+        if fail_count >= FAIL_THRESHOLD and not link_down:
+            msg = (
+                f"Lien WireGuard indisponible vers {TARGET_NAME} ({TARGET_IP}).\n"
+                f"Échecs consécutifs : {fail_count}\n"
+                f"Heure : {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n"
+                f"Détail : {details}"
+            )
+            log.error(f"❌ {msg}")
+            _notify_down(msg)
+            link_down = True
+
+        log.info("✅ wireguard_ha_slave_check terminé")
+
+    finally:
+        _check_running = False
 
 
 @time_trigger(CHECK_CRON)
@@ -137,4 +176,4 @@ def wireguard_ha_slave_check():
 
 @service
 def wireguard_ha_slave_check_now():
-    _run_check("manual")
+    _run_check("manuel")
