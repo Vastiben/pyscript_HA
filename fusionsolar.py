@@ -21,7 +21,7 @@ CONFIG = {
     "station_dn": "NE=152120280",
     "referer": "https://uni004eu5.fusionsolar.huawei.com/uniportal/pvmswebsite/assets/build/cloud.html?app-id=smartpvms",
     # Paste the complete Cookie request header value here:
-    "cookie": "JSESSIONID=520FBE4CD997FE338902E66458AA5663",
+    "cookie": "JSESSIONID=8E8376C088D3F64C4CF6583194667806; locale=de-de; selfSettingLanguage=true; HWWAFSESID=2687b1ba28ef8d69890; HWWAFSESTIME=1784102659300; pageversion=0; x-gray-tag=common; SSO_TGC_=TGTX--1401507077-903635-b4hPl77IAcMIzENZrVf6qZfnOfmMmm00dZM; dp-session=x-vtsa1j2rhjg8tcc907qo4b1gs82rcbs7ntpd6przqrk5o9qlfznvim6kalvwtibxc81e7yjutdfsrs7w7sallddfun463t8bvw86eqddc65gdeg7o5nt3tpfnx5celhf; JSESSIONID=8B3C505245B975EF82195D8DD93DD703",
     "update_every": "period(now, 2min)",
 }
 
