@@ -14,7 +14,6 @@ Security:
 """
 
 import importlib.util
-import os
 from datetime import datetime, timezone
 
 CONFIG = {
@@ -22,15 +21,15 @@ CONFIG = {
     "station_dn": "NE=152120280",
     "referer": "https://uni004eu5.fusionsolar.huawei.com/uniportal/pvmswebsite/assets/build/cloud.html?app-id=smartpvms",
     # Paste the complete Cookie request header value here:
-    "cookie": "JSESSIONID=520FBE4CD997FE338902E66458AA5663",
+    "cookie": "PASTE_EDGE_NETWORK_COOKIE_HERE",
     "update_every": "period(now, 2min)",
 }
 
+TELEGRAM_CHAT_ID = 7332342681
+
 
 def _load_lib():
-    """Load fusionsolar_lib.py as a plain Python module (not wrapped by pyscript)."""
-    lib_path = "/config/pyscript/fusionsolar_lib.py"
-    spec = importlib.util.spec_from_file_location("fusionsolar_lib", lib_path)
+    spec = importlib.util.spec_from_file_location("fusionsolar_lib", "/config/pyscript/fusionsolar_lib.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -46,6 +45,15 @@ def _flush_logs(logs):
             log.info(f"FusionSolar: {entry[5:]}")
         else:
             log.debug(f"FusionSolar: {entry[6:]}")
+
+
+def _send_telegram(message):
+    service.call(
+        "telegram_bot",
+        "send_message",
+        target=[TELEGRAM_CHAT_ID],
+        message=message
+    )
 
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None, attrs=None):
@@ -68,11 +76,8 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
     try:
-        # Load the pure-Python lib and grab its fetch function BEFORE passing to executor.
-        # lib.fetch is a plain Python function, not wrapped by pyscript.
-        lib = _load_lib()
+        lib  = _load_lib()
         data = task.executor(lib.fetch, CONFIG)
-
         _flush_logs(data.get("logs"))
 
         status = data.get("status", "ok")
@@ -83,6 +88,27 @@ def update_fusionsolar_sensors():
             f"load={data.get('load_power_kw')}kW | daily={data.get('daily_energy_kwh')}kWh"
         )
 
+        # ── Telegram summary avant l'écriture des sensors ──
+        status_icon = "✅" if status == "ok" else ("⚠️" if status == "partial" else "❌")
+        tg_msg = (
+            f"{status_icon} *FusionSolar* — {datetime.now(timezone.utc).strftime('%H:%M UTC')}\n"
+            f"🌞 PV\t\t`{data.get('pv_power_kw')} kW`\n"
+            f"🏠 Conso\t`{data.get('load_power_kw')} kW`\n"
+            f"🔋 Batterie\t`{data.get('battery_soc_percent')} %`\n"
+            f"⬆️ Charge bat\t`{data.get('battery_charge_kw')} kW`\n"
+            f"⬇️ Décharge bat\t`{data.get('battery_discharge_kw')} kW`\n"
+            f"📥 Soutirage\t`{data.get('grid_import_kw')} kW`\n"
+            f"📤 Injection\t`{data.get('grid_export_kw')} kW`\n"
+            f"⚡ Prod jour\t`{data.get('daily_energy_kwh')} kWh`\n"
+            f"📅 Prod mois\t`{data.get('monthly_energy_kwh')} kWh`\n"
+            f"Status\t\t`{status}`"
+        )
+        if data.get("error"):
+            tg_msg += f"\n⚠️ Erreurs: `{data.get('error')}`"
+        _send_telegram(tg_msg)
+        log.info("FusionSolar: 💬 Telegram envoyé")
+
+        # ── Écriture des sensors HA ──
         attrs = {
             "plant_dn":        data.get("plant_dn"),
             "last_update_utc": data.get("ts_utc"),
