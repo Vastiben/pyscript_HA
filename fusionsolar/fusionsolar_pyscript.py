@@ -241,7 +241,7 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
     log.debug(f"FusionSolar: ✅ {entity_id} = {value} {unit or ''}")
 
 
-@time_trigger(*/2 * * * * *)
+@time_trigger(*/2 * * * *)
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
     try:
