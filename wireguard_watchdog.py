@@ -13,7 +13,7 @@ FAIL_THRESHOLD        = 3              # alarme après N cycles KO consécutifs
 # ─────────────────────────────────────────────────────────────────────────────
 
 CHECK_CRON            = f"cron(*/{CHECK_INTERVAL_SEC // 60} * * * *)"
-WG_HANDSHAKE_MAX_AGE  = CHECK_INTERVAL_SEC
+WG_HANDSHAKE_MAX_AGE  = CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC
 PING_RETRIES          = (CHECK_INTERVAL_SEC - CYCLE_MARGIN_SEC) // PING_TIMEOUT
 
 TWILIO_TARGET         = "+41792763781"
