@@ -13,8 +13,8 @@ Security:
   - Do not commit this file to Git with the cookie inside.
 """
 
-import importlib
-import sys
+import importlib.util
+import os
 from datetime import datetime, timezone
 
 CONFIG = {
@@ -27,45 +27,16 @@ CONFIG = {
 }
 
 
-def _get_lib():
-    """Import fusionsolar_lib as a plain Python module (bypasses pyscript wrapping)."""
-    import importlib.util, os
-    lib_path = os.path.join(os.path.dirname(__file__), "fusionsolar_lib.py")
+def _load_lib():
+    """Load fusionsolar_lib.py as a plain Python module (not wrapped by pyscript)."""
+    lib_path = "/config/pyscript/fusionsolar_lib.py"
     spec = importlib.util.spec_from_file_location("fusionsolar_lib", lib_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
 
 
-def _call_fetch(config):
-    """Pure Python wrapper — safe to call from task.executor."""
-    lib = _get_lib()
-    result = lib.fetch(config)
-    # Convert dataclass to plain dict so pyscript doesn't complain on return
-    return {
-        "ts_utc":               result.ts_utc,
-        "plant_dn":             result.plant_dn,
-        "status":               result.status,
-        "error":                result.error,
-        "pv_power_kw":          result.pv_power_kw,
-        "battery_soc_percent":  result.battery_soc_percent,
-        "battery_power_kw":     result.battery_power_kw,
-        "battery_charge_kw":    result.battery_charge_kw,
-        "battery_discharge_kw": result.battery_discharge_kw,
-        "grid_power_kw":        result.grid_power_kw,
-        "grid_import_kw":       result.grid_import_kw,
-        "grid_export_kw":       result.grid_export_kw,
-        "load_power_kw":        result.load_power_kw,
-        "daily_energy_kwh":     result.daily_energy_kwh,
-        "monthly_energy_kwh":   result.monthly_energy_kwh,
-        "yearly_energy_kwh":    result.yearly_energy_kwh,
-        "total_energy_kwh":     result.total_energy_kwh,
-        "logs":                 result.logs,
-    }
-
-
 def _flush_logs(logs):
-    """Replay logs collected in pure Python context into pyscript log.*"""
     for entry in (logs or []):
         if entry.startswith("ERROR"):
             log.error(f"FusionSolar: {entry[6:]}")
@@ -97,7 +68,11 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
     try:
-        data = task.executor(_call_fetch, CONFIG)
+        # Load the pure-Python lib and grab its fetch function BEFORE passing to executor.
+        # lib.fetch is a plain Python function, not wrapped by pyscript.
+        lib = _load_lib()
+        data = task.executor(lib.fetch, CONFIG)
+
         _flush_logs(data.get("logs"))
 
         status = data.get("status", "ok")
