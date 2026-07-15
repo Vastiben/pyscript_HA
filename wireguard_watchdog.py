@@ -59,11 +59,9 @@ def _check_handshake():
         lines = result.stdout.splitlines()
         found_peer = False
         for line in lines:
-            # Dès qu'on trouve le peer ciblé par son IP
             if "allowed ips" in line and TARGET_IP in line:
                 found_peer = True
                 continue
-            # La ligne handshake suit immédiatement le bloc du peer
             if found_peer and "latest handshake" in line:
                 minutes = 0
                 seconds = 0
@@ -77,7 +75,6 @@ def _check_handshake():
                 if age < WG_HANDSHAKE_MAX_AGE:
                     return True, f"handshake il y a {age}s"
                 return False, f"handshake trop ancien ({age}s)"
-            # Reset si on entre dans un autre peer sans avoir trouvé le handshake
             if found_peer and "allowed ips" in line and TARGET_IP not in line:
                 found_peer = False
 
@@ -168,7 +165,8 @@ def _run_check(source="cron"):
                 f"ping={'OK' if ping_ok else 'KO'}"
             )
 
-            if hs_ok or ping_ok:
+            # UP uniquement si handshake ET ping sont OK
+            if hs_ok and ping_ok:
                 if link_down:
                     msg = (
                         f"Lien WireGuard rétabli vers {TARGET_NAME} ({TARGET_IP}).\n"
@@ -180,11 +178,15 @@ def _run_check(source="cron"):
                     _notify_up(msg)
 
                 link_down = False
-                _set_status("up", f"handshake={'OK' if hs_ok else hs_detail} | ping={'OK' if ping_ok else 'KO'}")
+                _set_status("up", f"handshake=OK ({hs_detail}) | ping=OK")
                 log.info(f"✅ wireguard_ha_slave_check terminé - lien OK (tentative {attempt}/{MAX_ATTEMPTS})")
                 return
 
-            details = f"handshake={hs_detail} | ping={ping_stderr or ping_stdout or 'KO'}"
+            # L'un ou les deux KO → on continue la boucle
+            details = (
+                f"handshake={'OK' if hs_ok else hs_detail} | "
+                f"ping={'OK' if ping_ok else (ping_stderr or ping_stdout or 'KO')}"
+            )
             _set_status("down", details)
             log.warning(f"⚠ tentative {attempt}/{MAX_ATTEMPTS} KO | {details}")
 
