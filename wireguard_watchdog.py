@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 TARGET_NAME      = "ha-slave"
-TARGET_IP        = "192.168.1.139"
+TARGET_IP        = "172.27.66.3"
 WG_ADDON_SLUG    = "a0d7b954_wireguard"
 
 # ── Paramètres configurables ───────────────────────────────────────────────────
