@@ -1,8 +1,9 @@
 """
 pyscript: FusionSolar cookie-based sensors.
 
-Put this file as:
-  /config/pyscript/fusionsolar.py
+Put these two files in /config/pyscript/:
+  - fusionsolar.py      (this file — pyscript triggers & HA state)
+  - fusionsolar_lib.py  (pure Python logic — safe for task.executor)
 
 Then edit CONFIG below:
   - paste the Cookie header captured from Edge/Chrome Network
@@ -10,230 +11,80 @@ Then edit CONFIG below:
 
 Security:
   - Do not commit this file to Git with the cookie inside.
-  - If you pasted your FusionSolar password into any chat or file, rotate it.
 """
 
-from dataclasses import dataclass, asdict
+import importlib
+import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-import json
-import requests
 
 CONFIG = {
     "base_url": "https://uni004eu5.fusionsolar.huawei.com",
     "station_dn": "NE=152120280",
     "referer": "https://uni004eu5.fusionsolar.huawei.com/uniportal/pvmswebsite/assets/build/cloud.html?app-id=smartpvms",
-    # Paste the complete Cookie request header value here, for example:
-    # "cookie": "SESSION=...; other_cookie=...",
+    # Paste the complete Cookie request header value here:
     "cookie": "PASTE_EDGE_NETWORK_COOKIE_HERE",
     "update_every": "period(now, 2min)",
 }
 
 
-@dataclass
-class FusionSolarMetrics:
-    ts_utc: str
-    plant_dn: str
-    status: str = "ok"
-    error: Optional[str] = None
-    pv_power_kw: Optional[float] = None
-    battery_soc_percent: Optional[float] = None
-    battery_power_kw: Optional[float] = None
-    battery_charge_kw: Optional[float] = None
-    battery_discharge_kw: Optional[float] = None
-    grid_power_kw: Optional[float] = None
-    grid_import_kw: Optional[float] = None
-    grid_export_kw: Optional[float] = None
-    load_power_kw: Optional[float] = None
-    daily_energy_kwh: Optional[float] = None
-    monthly_energy_kwh: Optional[float] = None
-    yearly_energy_kwh: Optional[float] = None
-    total_energy_kwh: Optional[float] = None
-    raw: Optional[Dict[str, Any]] = None
-    # Logs collected during executor (plain Python context, no pyscript log.*)
-    _exec_logs: Optional[List[str]] = None
+def _get_lib():
+    """Import fusionsolar_lib as a plain Python module (bypasses pyscript wrapping)."""
+    import importlib.util, os
+    lib_path = os.path.join(os.path.dirname(__file__), "fusionsolar_lib.py")
+    spec = importlib.util.spec_from_file_location("fusionsolar_lib", lib_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
-def _to_float(value):
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        v = value.strip().replace(",", ".")
-        if v in ("", "--", "-", "null", "None", "nan"):
-            return None
-        for suffix in ("kWh", "KWh", "kw", "kW", "W", "%"):
-            if v.endswith(suffix):
-                v = v[: -len(suffix)].strip()
-        try:
-            return float(v)
-        except ValueError:
-            return None
-    return None
+def _call_fetch(config):
+    """Pure Python wrapper — safe to call from task.executor."""
+    lib = _get_lib()
+    result = lib.fetch(config)
+    # Convert dataclass to plain dict so pyscript doesn't complain on return
+    return {
+        "ts_utc":               result.ts_utc,
+        "plant_dn":             result.plant_dn,
+        "status":               result.status,
+        "error":                result.error,
+        "pv_power_kw":          result.pv_power_kw,
+        "battery_soc_percent":  result.battery_soc_percent,
+        "battery_power_kw":     result.battery_power_kw,
+        "battery_charge_kw":    result.battery_charge_kw,
+        "battery_discharge_kw": result.battery_discharge_kw,
+        "grid_power_kw":        result.grid_power_kw,
+        "grid_import_kw":       result.grid_import_kw,
+        "grid_export_kw":       result.grid_export_kw,
+        "load_power_kw":        result.load_power_kw,
+        "daily_energy_kwh":     result.daily_energy_kwh,
+        "monthly_energy_kwh":   result.monthly_energy_kwh,
+        "yearly_energy_kwh":    result.yearly_energy_kwh,
+        "total_energy_kwh":     result.total_energy_kwh,
+        "logs":                 result.logs,
+    }
 
 
-def _find_by_key_contains(obj, candidates):
-    cand = [c.lower().replace("_", "").replace("-", "") for c in candidates]
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            key = str(k).lower().replace("_", "").replace("-", "")
-            if any(c in key for c in cand):
-                val = _to_float(v)
-                if val is not None:
-                    return val
-        for v in obj.values():
-            val = _find_by_key_contains(v, candidates)
-            if val is not None:
-                return val
-    elif isinstance(obj, list):
-        for item in obj:
-            val = _find_by_key_contains(item, candidates)
-            if val is not None:
-                return val
-    return None
-
-
-# ── Pure Python class: NO log.* calls allowed here ──────────────────────────
-class FusionSolarWebClient:
-    def __init__(self, base_url, station_dn, cookie, referer=None, timeout=20):
-        self.base_url = base_url.rstrip("/")
-        self.station_dn = station_dn
-        self.timeout = timeout
-        self.s = requests.Session()
-        self.s.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36 Edg/126.0",
-            "Accept": "application/json, text/plain, */*",
-            "Content-Type": "application/json;charset=UTF-8",
-            "Cookie": cookie,
-            "Referer": referer or self.base_url + "/",
-            "Origin": self.base_url,
-            "X-Requested-With": "XMLHttpRequest",
-        })
-
-    def request_json(self, method, path, params=None, json_body=None):
-        url = self.base_url + path
-        r = self.s.request(method, url, params=params, json=json_body, timeout=self.timeout)
-        if r.status_code in (401, 403):
-            raise RuntimeError(f"FusionSolar cookie/session rejected: HTTP {r.status_code} on {path}")
-        r.raise_for_status()
-        return r.json()
-
-    def poll_raw(self, exec_logs):
-        """exec_logs: list to collect log strings (plain Python, no pyscript log.*)"""
-        raw = {}
-        endpoints = {
-            "energy_flow":      ("GET", "/rest/pvms/web/station/v1/overview/energy-flow"),
-            "energy_balance":   ("GET", "/rest/pvms/web/station/v1/overview/energy-balance"),
-            "station_real_kpi": ("GET", "/rest/pvms/web/station/v1/overview/station-real-kpi"),
-            "station_detail":   ("GET", "/rest/pvms/web/station/v1/overview/station-detail"),
-        }
-        exec_logs.append(f"INFO: poll {len(endpoints)} endpoints pour station={self.station_dn}")
-        ok_count = 0
-        for name, (method, path) in endpoints.items():
-            try:
-                raw[name] = self.request_json(method, path, params={"stationDn": self.station_dn})
-                ok_count += 1
-                exec_logs.append(f"DEBUG: endpoint '{name}' OK")
-            except Exception as e:
-                raw[name] = {"_error": str(e)}
-                exec_logs.append(f"WARNING: endpoint '{name}' ERREUR — {e}")
-        exec_logs.append(f"INFO: poll terminé — {ok_count}/{len(endpoints)} endpoints réussis")
-        return raw
-
-
-def normalize_payload(raw, station_dn, exec_logs):
-    """Pure Python — no pyscript log.* calls."""
-    pv_kw         = _find_by_key_contains(raw, ["pvPower", "productPower", "productionPower", "realTimePower", "activePower"])
-    battery_soc   = _find_by_key_contains(raw, ["batterySoc", "stateOfCharge", "soc"])
-    battery_power = _find_by_key_contains(raw, ["batteryPower", "chargeDischargePower", "chargePower", "dischargePower"])
-    grid_power    = _find_by_key_contains(raw, ["gridPower", "meterPower", "onGridPower", "disGridPower"])
-    load_power    = _find_by_key_contains(raw, ["loadPower", "usePower", "consumptionPower"])
-    daily         = _find_by_key_contains(raw, ["dailyEnergy", "dayEnergy", "totalCurrentDayEnergy", "totalProductPower"])
-    monthly       = _find_by_key_contains(raw, ["monthEnergy", "monthlyEnergy", "totalCurrentMonthEnergy"])
-    yearly        = _find_by_key_contains(raw, ["yearEnergy", "yearlyEnergy", "totalCurrentYearEnergy"])
-    total         = _find_by_key_contains(raw, ["cumulativeEnergy", "totalEnergy", "lifetimeEnergy"])
-
-    exec_logs.append(
-        f"DEBUG: valeurs extraites — pv={pv_kw}kW, soc={battery_soc}%, bat={battery_power}kW, "
-        f"grid={grid_power}kW, load={load_power}kW, daily={daily}kWh, monthly={monthly}kWh, "
-        f"yearly={yearly}kWh, total={total}kWh"
-    )
-
-    if pv_kw is None:
-        exec_logs.append("WARNING: pv_power_kw est None — clé non trouvée dans le payload")
-    if battery_soc is None:
-        exec_logs.append("WARNING: battery_soc_percent est None — batterie non détectée ou clé absente")
-    if grid_power is None:
-        exec_logs.append("WARNING: grid_power_kw est None — compteur réseau non détecté")
-
-    battery_charge_kw    = max(-battery_power, 0.0) if battery_power is not None else None
-    battery_discharge_kw = max(battery_power, 0.0)  if battery_power is not None else None
-    grid_import_kw       = max(-grid_power, 0.0)    if grid_power is not None else None
-    grid_export_kw       = max(grid_power, 0.0)     if grid_power is not None else None
-
-    errors = {k: v.get("_error") for k, v in raw.items() if isinstance(v, dict) and v.get("_error")}
-    status = "ok"
-    err = None
-    if errors and len(errors) == len(raw):
-        status = "error"
-        err = json.dumps(errors, ensure_ascii=False)
-        exec_logs.append(f"ERROR: tous les endpoints ont échoué — {err}")
-    elif errors:
-        status = "partial"
-        err = json.dumps(errors, ensure_ascii=False)
-        exec_logs.append(f"WARNING: status=partial, endpoints en erreur: {list(errors.keys())}")
-    else:
-        exec_logs.append("DEBUG: normalisation OK, status=ok")
-
-    return FusionSolarMetrics(
-        ts_utc=datetime.now(timezone.utc).isoformat(),
-        plant_dn=station_dn,
-        status=status,
-        error=err,
-        pv_power_kw=pv_kw,
-        battery_soc_percent=battery_soc,
-        battery_power_kw=battery_power,
-        battery_charge_kw=battery_charge_kw,
-        battery_discharge_kw=battery_discharge_kw,
-        grid_power_kw=grid_power,
-        grid_import_kw=grid_import_kw,
-        grid_export_kw=grid_export_kw,
-        load_power_kw=load_power,
-        daily_energy_kwh=daily,
-        monthly_energy_kwh=monthly,
-        yearly_energy_kwh=yearly,
-        total_energy_kwh=total,
-        raw=raw,
-        _exec_logs=exec_logs,
-    )
-
-
-def fetch_fusionsolar_sync():
-    """Pure Python function — safe to call from task.executor. No pyscript log.* allowed."""
-    exec_logs = []
-    cookie = CONFIG["cookie"]
-    if not cookie or cookie == "PASTE_EDGE_NETWORK_COOKIE_HERE":
-        raise RuntimeError("FusionSolar cookie missing: edit /config/pyscript/fusionsolar.py and paste the Cookie header.")
-    exec_logs.append(f"DEBUG: cookie présent ({len(cookie)} caractères), démarrage du client HTTP")
-    client = FusionSolarWebClient(CONFIG["base_url"], CONFIG["station_dn"], cookie, CONFIG.get("referer"))
-    raw = client.poll_raw(exec_logs)
-    metrics = normalize_payload(raw, CONFIG["station_dn"], exec_logs)
-    return asdict(metrics)
+def _flush_logs(logs):
+    """Replay logs collected in pure Python context into pyscript log.*"""
+    for entry in (logs or []):
+        if entry.startswith("ERROR"):
+            log.error(f"FusionSolar: {entry[6:]}")
+        elif entry.startswith("WARNING"):
+            log.warning(f"FusionSolar: {entry[8:]}")
+        elif entry.startswith("INFO"):
+            log.info(f"FusionSolar: {entry[5:]}")
+        else:
+            log.debug(f"FusionSolar: {entry[6:]}")
 
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None, attrs=None):
-    """Called from pyscript context — log.* is allowed here."""
     if value is None:
-        log.debug(f"FusionSolar: sensor {entity_id} ignoré (valeur None)")
+        log.debug(f"FusionSolar: {entity_id} ignoré (None)")
         return
     a = dict(attrs or {})
-    if unit:
-        a["unit_of_measurement"] = unit
-    if device_class:
-        a["device_class"] = device_class
-    if state_class:
-        a["state_class"] = state_class
+    if unit:         a["unit_of_measurement"] = unit
+    if device_class: a["device_class"] = device_class
+    if state_class:  a["state_class"] = state_class
     try:
         value = round(float(value), 3)
     except Exception:
@@ -242,27 +93,12 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
     log.debug(f"FusionSolar: ✅ {entity_id} = {value} {unit or ''}")
 
 
-def _flush_exec_logs(exec_logs):
-    """Replay logs collected during task.executor into pyscript log.*"""
-    for entry in (exec_logs or []):
-        if entry.startswith("ERROR:"):
-            log.error(f"FusionSolar: {entry[7:]}")
-        elif entry.startswith("WARNING:"):
-            log.warning(f"FusionSolar: {entry[9:]}")
-        elif entry.startswith("INFO:"):
-            log.info(f"FusionSolar: {entry[6:]}")
-        else:
-            log.debug(f"FusionSolar: {entry[7:]}")
-
-
 @time_trigger(CONFIG["update_every"])
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
     try:
-        data = task.executor(fetch_fusionsolar_sync)
-
-        # Replay logs from the executor (pure Python) context
-        _flush_exec_logs(data.get("_exec_logs"))
+        data = task.executor(_call_fetch, CONFIG)
+        _flush_logs(data.get("logs"))
 
         status = data.get("status", "ok")
         log.info(
@@ -282,7 +118,7 @@ def update_fusionsolar_sensors():
             attrs["error"] = data.get("error")
             log.warning(f"FusionSolar: erreurs partielles — {data.get('error')}")
 
-        log.debug("FusionSolar: mise à jour des sensors Home Assistant...")
+        log.debug("FusionSolar: mise à jour des sensors HA...")
         _set_sensor("sensor.fusionsolar_pv_power",               data.get("pv_power_kw"),          "kW",  "power",   "measurement",      attrs)
         _set_sensor("sensor.fusionsolar_load_power",             data.get("load_power_kw"),         "kW",  "power",   "measurement",      attrs)
         _set_sensor("sensor.fusionsolar_grid_import_power",      data.get("grid_import_kw"),        "kW",  "power",   "measurement",      attrs)
@@ -299,10 +135,11 @@ def update_fusionsolar_sensors():
         state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(),  new_attributes=attrs)
         log.info(
             f"FusionSolar: ✅ update complet — "
-            f"{sum(1 for k in ['pv_power_kw', 'load_power_kw', 'grid_import_kw', 'battery_soc_percent'] if data.get(k) is not None)}/4 "
+            f"{sum(1 for k in ['pv_power_kw','load_power_kw','grid_import_kw','battery_soc_percent'] if data.get(k) is not None)}/4 "
             f"métriques principales disponibles"
         )
 
     except Exception as e:
-        log.error(f"FusionSolar: ❌ update_fusionsolar_sensors EXCEPTION — {type(e).__name__}: {e}")
-        state.set("sensor.fusionsolar_status", value="error", new_attributes={"error": str(e), "plant_dn": CONFIG.get("station_dn")})
+        log.error(f"FusionSolar: ❌ EXCEPTION — {type(e).__name__}: {e}")
+        state.set("sensor.fusionsolar_status", value="error",
+                  new_attributes={"error": str(e), "plant_dn": CONFIG.get("station_dn")})
