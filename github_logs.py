@@ -3,44 +3,40 @@ import base64
 import requests
 from pathlib import Path
 
-# --- CONFIG À ADAPTER ---
+# --- CONFIG ---
 
-GITHUB_OWNER = "Vastiben"            # ton user ou org GitHub
-GITHUB_REPO  = "pyscript_HA"         # nom du repo
-GITHUB_PATH  = "logs/ha_warnings_errors.log"  # chemin du fichier dans le repo
-
-# Token GitHub avec droits 'repo' ou au moins 'contents:write'.
-# À définir côté Home Assistant, par ex. via pyscript.config["github_token"].
-GITHUB_TOKEN = pyscript.config.get("github_token", "")
-
-# Fichier log de Home Assistant (core) et fichier local filtré.
-LOG_FILE        = "/config/home-assistant.log"              # emplacement standard sur HA OS
-LOCAL_LOG_FILE  = "/config/pyscript/logs/ha_warnings_errors.log"  # sera écrasé à chaque run
+GITHUB_OWNER   = "Vastiben"
+GITHUB_REPO    = "pyscript_HA"
+GITHUB_PATH    = "logs/ha_warnings_errors.log"
+GITHUB_TOKEN   = pyscript.config.get("github_token", "")
+LOG_FILE       = "/config/home-assistant.log"
+LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
-def _filter_warning_error() -> str:
-    """Retourne uniquement les lignes WARNING/ERROR du log HA."""
+@pyscript_compile
+def _collect_and_write_logs_native():
+    """
+    Fonction native (hors sandbox pyscript) : open() est autorisé ici.
+    Lit le log HA, filtre WARNING/ERROR, écrase le fichier local, retourne le texte.
+    """
+    from datetime import datetime
+    from pathlib import Path
+
     try:
         with open(LOG_FILE, "r", encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
     except Exception as e:
-        log.error(f"GitHub logs: impossible de lire {LOG_FILE}: {e}")
-        return ""
+        raise RuntimeError(f"Impossible de lire {LOG_FILE}: {e}") from e
 
     filtered = [l for l in lines if "WARNING" in l or "ERROR" in l]
     header = f"Snapshot {datetime.now().isoformat()} — WARNING/ERROR uniquement\n\n"
-    return header + "".join(filtered)
+    text = header + "".join(filtered)
 
+    Path(LOCAL_LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
+    with open(LOCAL_LOG_FILE, "w", encoding="utf-8") as f:
+        f.write(text)
 
-def _write_local_log(text: str) -> None:
-    """Écrit (en écrasant) le log filtré dans LOCAL_LOG_FILE."""
-    try:
-        Path(LOCAL_LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
-        with open(LOCAL_LOG_FILE, "w", encoding="utf-8") as f:
-            f.write(text)
-        log.info(f"GitHub logs: local log mis à jour → {LOCAL_LOG_FILE}")
-    except Exception as e:
-        log.error(f"GitHub logs: impossible d'écrire {LOCAL_LOG_FILE}: {e}")
+    return text
 
 
 def _get_remote_sha():
@@ -59,8 +55,7 @@ def _get_remote_sha():
     except Exception as e:
         log.error(f"GitHub logs: GET contents a échoué ({r.status_code}): {e} — {r.text}")
         return None
-    data = r.json()
-    return data.get("sha")
+    return r.json().get("sha")
 
 
 def _push_to_github(text: str):
@@ -71,7 +66,6 @@ def _push_to_github(text: str):
 
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{GITHUB_PATH}"
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-
     content_b64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
     sha = _get_remote_sha()
 
@@ -80,7 +74,7 @@ def _push_to_github(text: str):
         "content": content_b64,
     }
     if sha:
-        payload["sha"] = sha  # requis pour update d'un fichier existant
+        payload["sha"] = sha
 
     r = requests.put(url, json=payload, headers=headers)
     try:
@@ -93,14 +87,15 @@ def _push_to_github(text: str):
 
 @time_trigger("period(now, 1min)")
 def push_ha_warning_error_logs():
-    """Tâche planifiée: toutes les minutes, écrit localement + push WARNING/ERROR vers GitHub."""
-    text = _filter_warning_error()
-    if not text.strip():
+    """Toutes les minutes : collecte/écrit les logs filtrés, puis pousse vers GitHub."""
+    try:
+        text = task.executor(_collect_and_write_logs_native)
+    except Exception as e:
+        log.error(f"GitHub logs: erreur collect/write: {e}")
+        return
+
+    if not text or not text.strip():
         log.debug("GitHub logs: aucun WARNING/ERROR, pas de push.")
         return
 
-    # 1) écrire localement, en écrasant l'ancien fichier
-    _write_local_log(text)
-
-    # 2) pousser sur GitHub dans un thread séparé
     task.executor(_push_to_github, text)
