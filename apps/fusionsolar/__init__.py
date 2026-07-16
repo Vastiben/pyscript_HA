@@ -54,8 +54,13 @@ def _flush_logs(logs):
 
 
 def _send_telegram(message):
-    service.call("telegram_bot", "send_message",
-                 target=[TELEGRAM_CHAT_ID], message=message)
+    # Pyscript: service.call(domain, name, **data)
+    service.call(
+        "telegram_bot",
+        "send_message",
+        target=[TELEGRAM_CHAT_ID],
+        message=message,
+    )
 
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None, attrs=None):
@@ -78,6 +83,8 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ update (toutes les 2 min)")
     try:
+        # _run_fetch est un vrai code Python (subprocess), donc on peut l'exécuter
+        # dans un thread via task.executor sans violer les règles Pyscript.
         data = task.executor(_run_fetch, CONFIG, SCRIPT_PATH)
         _flush_logs(data.get("logs"))
 
