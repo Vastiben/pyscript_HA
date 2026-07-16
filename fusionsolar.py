@@ -1,30 +1,11 @@
 # /config/pyscript/fusionsolar.py
 
-"""
-FusionSolar PRODUCTION VERSION
-
-✅ stable
-✅ retry automatique
-✅ health check
-✅ gestion cookie expiré
-✅ compatible pyscript
-
-Commandes:
-- /fsstatus
-- /fstest
-- /fsreset
-- /fshealth
-"""
-
 import requests
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import time
 
-# =========================
-# CONFIG
-# =========================
 CONFIG = {
     "base": "https://uni004eu5.fusionsolar.huawei.com",
     "station": "NE=152120280",
@@ -47,14 +28,6 @@ def dbg(msg):
 def err(msg):
     log.error("[FS][ERR] " + str(msg))
 
-dbg("fusionsolar chargé")
-
-# =========================
-# FILE
-# =========================
-def read(path):
-    p = Path(path)
-    return p.read_text().strip() if p.exists() else ""
 
 # =========================
 # TELEGRAM
@@ -71,13 +44,21 @@ def notify(msg, chat=None):
     except Exception as e:
         err("Telegram failed: " + str(e))
 
+
 # =========================
-# PURE PYTHON (executor safe)
+# PURE PYTHON (SAFE)
 # =========================
 def fetch_data():
 
-    cookie = read(CONFIG["cookie"])
-    roarand = read(CONFIG["roarand"])
+    cookie = ""
+    roarand = ""
+
+    # ✅ IMPORTANT: PAS de fonction pyscript ici
+    if Path(CONFIG["cookie"]).exists():
+        cookie = Path(CONFIG["cookie"]).read_text().strip()
+
+    if Path(CONFIG["roarand"]).exists():
+        roarand = Path(CONFIG["roarand"]).read_text().strip()
 
     if not cookie:
         raise RuntimeError("COOKIE_MISSING")
@@ -139,8 +120,9 @@ def fetch_data():
         "discharge": discharge,
     }
 
+
 # =========================
-# SAFE WRAPPER
+# WRAPPER
 # =========================
 def fetch():
 
@@ -160,7 +142,8 @@ def fetch():
             if attempt == CONFIG["retry"]:
                 raise
 
-            time.sleep(2)
+            task.sleep(2)
+
 
 # =========================
 # SENSORS
@@ -170,6 +153,7 @@ def update(m):
     state.set("sensor.fs_pv", m["pv"])
     state.set("sensor.fs_load", m["load"])
     state.set("sensor.fs_soc", m["soc"])
+
 
 # =========================
 # HEALTH
@@ -210,6 +194,7 @@ def health(chat=None):
 
     notify("🔍 FusionSolar Health\n\n" + "\n".join(checks), chat)
 
+
 # =========================
 # COMMAND HANDLER
 # =========================
@@ -245,6 +230,7 @@ def handle(**kwargs):
             notify("⚠️ Cookie expiré → /fscookie", chat)
         else:
             notify("❌ erreur: " + str(e), chat)
+
 
 # =========================
 # AUTO
