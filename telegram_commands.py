@@ -19,11 +19,12 @@ from datetime import datetime
 # CONFIGURATION
 # =========================
 CONFIG = {
-    "telegram_domain": "notify",
-    "telegram_service": "telegram_bot",
+    "telegram_domain": "telegram_bot",
+    "telegram_service": "send_message",
     "allowed_chat_ids": [],  # sécurité (mettre ton chat_id)
     "debug": True,
 }
+
 
 # =========================
 # DEBUG
