@@ -32,6 +32,11 @@ dbg("✅ telegram_commands.py chargé")
 COMMANDS = {
     "/tghelp": {"type": "help"},
 
+    "/fshealth": {
+        "type": "event",
+        "action": "health",
+    },
+    
     "/fscookie": {
         "type": "write",
         "path": "/config/fusionsolar/cookie.txt",
