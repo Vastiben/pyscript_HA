@@ -10,3 +10,5 @@ pyscript:
 apps:
   sleep_summary:
     persist_state: true
+  fusionsolar:
+    persist_state: false
