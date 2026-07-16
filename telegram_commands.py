@@ -39,9 +39,9 @@ dbg("✅ telegram_commands.py chargé")
 # COMMANDES
 # =========================
 COMMANDS = {
-    "/tg_help": {"type": "help", "desc": "Afficher l'aide"},
+    "/help": {"type": "help", "desc": "Afficher l'aide"},
 
-    "/fs_cookie": {
+    "/cookie": {
         "type": "write",
         "path": "/config/fusionsolar/cookie.txt",
         "desc": "Enregistrer cookie FusionSolar",
@@ -49,15 +49,15 @@ COMMANDS = {
         "contains": "=",
     },
 
-    "/fs_roarand": {
+    "/roarand": {
         "type": "write",
         "path": "/config/fusionsolar/roarand.txt",
         "desc": "Enregistrer Roarand",
     },
 
-    "/fs_status": {"type": "event", "event": "fusionsolar_command", "action": "status"},
-    "/fs_test": {"type": "event", "event": "fusionsolar_command", "action": "test"},
-    "/fs_reset": {"type": "event", "event": "fusionsolar_command", "action": "reset"},
+    "/status": {"type": "event", "event": "fusionsolar_command", "action": "status"},
+    "/test": {"type": "event", "event": "fusionsolar_command", "action": "test"},
+    "/reset": {"type": "event", "event": "fusionsolar_command", "action": "reset"},
 }
 
 ALLOWED_PATHS = {
