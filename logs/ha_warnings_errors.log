@@ -1,4 +1,4 @@
-Snapshot 2026-07-16T17:42:01.666989 — 50 entrée(s) system_log
+Snapshot 2026-07-16T17:43:01.481096 — 50 entrée(s) system_log
 
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
@@ -281,11 +281,11 @@ Traceback (most recent call last):
     )
 TypeError: pyscript functions can't be called from task.executor - must be a regular python function
   [src=custom_components/pyscript/trigger.py:1397, count=7]
-[2026-07-16T17:39:04.569120] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=856]
-[2026-07-16T17:39:04.571898] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=856]
-[2026-07-16T17:42:00.791377] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+[2026-07-16T17:42:14.575695] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=857]
+[2026-07-16T17:42:14.579329] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=857]
+[2026-07-16T17:43:00.835080] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
    b63a9ce..571258c  main       -> origin/main
 error: The following untracked working tree files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please move or remove them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=4]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=5]
