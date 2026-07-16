@@ -1,9 +1,15 @@
 """
-🔹 FusionSolar Collector
-🔹 Met à jour sensors HA
-🔹 Répond aux commandes Telegram
+FusionSolar PRODUCTION VERSION
 
-Logs: [FS]
+✅ robuste
+✅ retry automatique
+✅ gestion cookie expiré
+✅ logs propres
+✅ safe executor
+
+Logs:
+[FS] INFO
+[FS][ERR] ERROR
 """
 
 import requests
@@ -12,47 +18,57 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import time
 
+# =========================
+# CONFIG
+# =========================
 CONFIG = {
     "base": "https://uni004eu5.fusionsolar.huawei.com",
     "station": "NE=152120280",
     "cookie": "/config/fusionsolar/cookie.txt",
     "roarand": "/config/fusionsolar/roarand.txt",
     "tz": "Europe/Zurich",
-    "debug": True,
+    "debug": False,   # 🔥 PROD = False
+    "retry": 2,
 }
 
 TZ = ZoneInfo(CONFIG["tz"])
 
 # =========================
-# DEBUG
+# LOGGING
 # =========================
 def dbg(msg):
     if CONFIG["debug"]:
         log.info(f"[FS] {msg}")
 
-dbg("✅ fusionsolar.py chargé")
+def err(msg):
+    log.error(f"[FS][ERR] {msg}")
 
 # =========================
-# HELPERS
+# FILES
 # =========================
 def read(path):
     p = Path(path)
     return p.read_text().strip() if p.exists() else ""
 
-
+# =========================
+# TELEGRAM
+# =========================
 def notify(msg, chat=None):
-    dbg(f"Notify → {msg[:50]}")
+
     data = {"message": msg}
+
     if chat:
         data["target"] = chat
 
-    service.call("telegram_bot", "send_message", **data)
-
+    try:
+        service.call("telegram_bot", "send_message", **data)
+    except Exception as e:
+        err(f"Telegram failed: {e}")
 
 # =========================
-# API
+# PURE PYTHON (executor safe)
 # =========================
-def session():
+def fetch_data():
 
     cookie = read(CONFIG["cookie"])
     roarand = read(CONFIG["roarand"])
@@ -71,34 +87,6 @@ def session():
     if roarand:
         s.headers["Roarand"] = roarand
 
-    return s
-
-
-def get(s, path, params):
-
-    url = CONFIG["base"] + path
-    dbg(f"GET {path}")
-
-    r = s.get(url, params=params, timeout=20)
-
-    if "json" not in r.headers.get("content-type", ""):
-        raise RuntimeError("Session expirée")
-
-    j = r.json()
-
-    if not j.get("success"):
-        raise RuntimeError("API erreur")
-
-    return j
-
-
-# =========================
-# FETCH
-# =========================
-def fetch():
-
-    s = session()
-
     now = datetime.now(TZ)
     midnight = now.replace(hour=0, minute=0, second=0)
 
@@ -109,20 +97,25 @@ def fetch():
         "_": int(time.time() * 1000),
     }
 
-    eb = get(s, "/rest/pvms/web/station/v3/overview/energy-balance", params)
-    ef = get(s, "/rest/pvms/web/station/v1/overview/energy-flow", {"stationDn": CONFIG["station"]})
+    def get(path, params):
+        r = s.get(CONFIG["base"] + path, params=params, timeout=20)
 
-    return extract(eb, ef)
+        if "json" not in r.headers.get("content-type", ""):
+            raise RuntimeError("SESSION_EXPIRED")
 
+        j = r.json()
 
-# =========================
-# EXTRACTION
-# =========================
-def extract(eb, ef):
+        if not j.get("success"):
+            raise RuntimeError("API_ERROR")
+
+        return j
+
+    eb = get("/rest/pvms/web/station/v3/overview/energy-balance", params)
+    ef = get("/rest/pvms/web/station/v1/overview/energy-flow", {"stationDn": CONFIG["station"]})
 
     d = eb["data"]
 
-    idx = max(i for i,v in enumerate(d["productPower"]) if v not in ["--", ""])
+    idx = max(i for i,v in enumerate(d["productPower"]) if v not in ["--",""])
 
     pv = float(d["productPower"][idx])
     load = float(d["usePower"][idx])
@@ -133,8 +126,6 @@ def extract(eb, ef):
 
     soc = float(battery["deviceTips"]["SOC"])
 
-    dbg(f"PV={pv} LOAD={load} SOC={soc}")
-
     return {
         "pv": pv,
         "load": load,
@@ -143,6 +134,30 @@ def extract(eb, ef):
         "discharge": discharge,
     }
 
+# =========================
+# SAFE WRAPPER
+# =========================
+def fetch():
+
+    for attempt in range(CONFIG["retry"] + 1):
+
+        try:
+            data = task.executor(fetch_data)
+
+            dbg(f"OK PV={data['pv']} SOC={data['soc']}")
+            return data
+
+        except Exception as e:
+
+            err(f"Fetch attempt {attempt} failed: {e}")
+
+            if "SESSION_EXPIRED" in str(e):
+                raise RuntimeError("COOKIE_EXPIRED")
+
+            if attempt == CONFIG["retry"]:
+                raise
+
+            time.sleep(2)
 
 # =========================
 # SENSORS
@@ -153,16 +168,11 @@ def update(m):
     state.set("sensor.fs_load", m["load"])
     state.set("sensor.fs_soc", m["soc"])
 
-    dbg("Sensors updated")
-
-
 # =========================
-# TELEGRAM COMMAND HANDLER
+# COMMAND HANDLER
 # =========================
 @event_trigger("fusionsolar_command")
 def handle(**kwargs):
-
-    dbg(f"EVENT: {kwargs}")
 
     action = kwargs.get("action")
     chat = kwargs.get("chat_id")
@@ -173,9 +183,9 @@ def handle(**kwargs):
             notify("✅ FusionSolar actif", chat)
 
         elif action == "test":
-            m = task.executor(fetch)
+            m = fetch()
             update(m)
-            notify(f"PV {m['pv']} kW | SOC {m['soc']}%", chat)
+            notify(f"☀️ {m['pv']} kW | 🔋 {m['soc']}%", chat)
 
         elif action == "reset":
             Path(CONFIG["cookie"]).unlink(missing_ok=True)
@@ -183,17 +193,30 @@ def handle(**kwargs):
             notify("✅ reset effectué", chat)
 
     except Exception as e:
-        notify(f"❌ erreur: {e}", chat)
 
+        err(e)
+
+        if "COOKIE_EXPIRED" in str(e):
+            notify("⚠️ Cookie expiré → /fscookie", chat)
+        else:
+            notify(f"❌ erreur: {e}", chat)
 
 # =========================
-# AUTOMATIQUE (optionnel)
+# AUTO POLLING
 # =========================
 @time_trigger("period(now, 5min)")
 def auto():
 
     try:
-        m = task.executor(fetch)
+        m = fetch()
         update(m)
+
     except Exception as e:
-        dbg(f"Auto error: {e}")
+
+        err(e)
+
+        if "COOKIE_EXPIRED" in str(e):
+            notify("⚠️ Cookie FusionSolar expiré")
+
+        else:
+            dbg(f"Auto error: {e}")
