@@ -1,15 +1,19 @@
+# /config/pyscript/fusionsolar.py
+
 """
 FusionSolar PRODUCTION VERSION
 
-✅ robuste
+✅ stable
 ✅ retry automatique
+✅ health check
 ✅ gestion cookie expiré
-✅ logs propres
-✅ safe executor
+✅ compatible pyscript
 
-Logs:
-[FS] INFO
-[FS][ERR] ERROR
+Commandes:
+- /fsstatus
+- /fstest
+- /fsreset
+- /fshealth
 """
 
 import requests
@@ -27,24 +31,26 @@ CONFIG = {
     "cookie": "/config/fusionsolar/cookie.txt",
     "roarand": "/config/fusionsolar/roarand.txt",
     "tz": "Europe/Zurich",
-    "debug": False,   # 🔥 PROD = False
+    "debug": False,
     "retry": 2,
 }
 
 TZ = ZoneInfo(CONFIG["tz"])
 
 # =========================
-# LOGGING
+# LOGS
 # =========================
 def dbg(msg):
     if CONFIG["debug"]:
-        log.info(f"[FS] {msg}")
+        log.info("[FS] " + str(msg))
 
 def err(msg):
-    log.error(f"[FS][ERR] {msg}")
+    log.error("[FS][ERR] " + str(msg))
+
+dbg("fusionsolar chargé")
 
 # =========================
-# FILES
+# FILE
 # =========================
 def read(path):
     p = Path(path)
@@ -63,7 +69,7 @@ def notify(msg, chat=None):
     try:
         service.call("telegram_bot", "send_message", **data)
     except Exception as e:
-        err(f"Telegram failed: {e}")
+        err("Telegram failed: " + str(e))
 
 # =========================
 # PURE PYTHON (executor safe)
@@ -74,7 +80,7 @@ def fetch_data():
     roarand = read(CONFIG["roarand"])
 
     if not cookie:
-        raise RuntimeError("Cookie manquant")
+        raise RuntimeError("COOKIE_MISSING")
 
     s = requests.Session()
 
@@ -123,7 +129,6 @@ def fetch_data():
     discharge = float(d["dischargePower"][idx])
 
     battery = next(n for n in ef["data"]["flow"]["nodes"] if n["id"] == "4")
-
     soc = float(battery["deviceTips"]["SOC"])
 
     return {
@@ -143,13 +148,11 @@ def fetch():
 
         try:
             data = task.executor(fetch_data)
-
-            dbg(f"OK PV={data['pv']} SOC={data['soc']}")
             return data
 
         except Exception as e:
 
-            err(f"Fetch attempt {attempt} failed: {e}")
+            err("Fetch attempt " + str(attempt) + " failed: " + str(e))
 
             if "SESSION_EXPIRED" in str(e):
                 raise RuntimeError("COOKIE_EXPIRED")
@@ -169,6 +172,45 @@ def update(m):
     state.set("sensor.fs_soc", m["soc"])
 
 # =========================
+# HEALTH
+# =========================
+def health(chat=None):
+
+    checks = []
+
+    if Path(CONFIG["cookie"]).exists():
+        checks.append("✅ Cookie présent")
+    else:
+        checks.append("❌ Cookie absent")
+
+    if Path(CONFIG["roarand"]).exists():
+        checks.append("✅ Roarand présent")
+    else:
+        checks.append("ℹ️ Roarand absent")
+
+    try:
+        m = fetch()
+        checks.append("✅ API OK")
+        checks.append("✅ PV: " + str(m["pv"]))
+        checks.append("✅ SOC: " + str(m["soc"]))
+    except Exception as e:
+        if "COOKIE_EXPIRED" in str(e):
+            checks.append("❌ Cookie expiré")
+        else:
+            checks.append("❌ API: " + str(e))
+
+    try:
+        pv = state.get("sensor.fs_pv")
+        if pv is None:
+            checks.append("⚠️ sensor vide")
+        else:
+            checks.append("✅ sensor = " + str(pv))
+    except Exception as e:
+        checks.append("❌ sensor: " + str(e))
+
+    notify("🔍 FusionSolar Health\n\n" + "\n".join(checks), chat)
+
+# =========================
 # COMMAND HANDLER
 # =========================
 @event_trigger("fusionsolar_command")
@@ -182,10 +224,13 @@ def handle(**kwargs):
         if action == "status":
             notify("✅ FusionSolar actif", chat)
 
+        elif action == "health":
+            health(chat)
+
         elif action == "test":
             m = fetch()
             update(m)
-            notify(f"☀️ {m['pv']} kW | 🔋 {m['soc']}%", chat)
+            notify("PV " + str(m["pv"]) + " kW | SOC " + str(m["soc"]) + "%", chat)
 
         elif action == "reset":
             Path(CONFIG["cookie"]).unlink(missing_ok=True)
@@ -199,10 +244,10 @@ def handle(**kwargs):
         if "COOKIE_EXPIRED" in str(e):
             notify("⚠️ Cookie expiré → /fscookie", chat)
         else:
-            notify(f"❌ erreur: {e}", chat)
+            notify("❌ erreur: " + str(e), chat)
 
 # =========================
-# AUTO POLLING
+# AUTO
 # =========================
 @time_trigger("period(now, 5min)")
 def auto():
@@ -217,6 +262,3 @@ def auto():
 
         if "COOKIE_EXPIRED" in str(e):
             notify("⚠️ Cookie FusionSolar expiré")
-
-        else:
-            dbg(f"Auto error: {e}")
