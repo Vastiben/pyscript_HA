@@ -1,4 +1,4 @@
-Snapshot 2026-07-17T00:00:02.250885 — 50 entrée(s) system_log
+Snapshot 2026-07-17T00:01:01.575216 — 50 entrée(s) system_log
 
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
@@ -283,9 +283,9 @@ TypeError: pyscript functions can't be called from task.executor - must be a reg
 1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=157]
 [2026-07-16T23:59:05.437419] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=976]
 [2026-07-16T23:59:05.440161] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=976]
-[2026-07-17T00:00:01.609284] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
-   1a56c6e..f4c7f47  main       -> origin/main
+[2026-07-17T00:01:00.876904] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   f4c7f47..51df406  main       -> origin/main
 error: Your local changes to the following files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please commit your changes or stash them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=381]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=382]
