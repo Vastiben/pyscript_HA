@@ -1,26 +1,44 @@
 """
 Pyscript app: FusionSolar
 
-Structure:
+Deploy:
   /config/pyscript/apps/fusionsolar/__init__.py   ← ce fichier
-  /config/pyscript/apps/fusionsolar/lib.py        ← logique HTTP pure Python
+  /config/fusionsolar_fetch.py                    ← script autonome (hors pyscript)
 
-Edit CONFIG below. Never commit the real cookie to GitHub.
-Add roarand value if visible in DevTools Network headers.
+Edit COOKIE and ROARAND below. Never commit the real cookie to GitHub.
 """
 
+import json
+import subprocess
 from datetime import datetime, timezone
-from . import lib as fusionsolar_lib
 
 CONFIG = {
-    "base_url":     "https://uni004eu5.fusionsolar.huawei.com",
-    "station_dn":   "NE=152120280",
-    "cookie":       "PASTE_EDGE_NETWORK_COOKIE_HERE",
-    "roarand":      "",   # optional — paste Roarand header value if present
-    "update_every": "period(now, 2min)",
+    "base_url":    "https://uni004eu5.fusionsolar.huawei.com",
+    "station_dn":  "NE=152120280",
+    "cookie":      "PASTE_EDGE_NETWORK_COOKIE_HERE",
+    "roarand":     "",
 }
 
+SCRIPT_PATH    = "/config/fusionsolar_fetch.py"
 TELEGRAM_CHAT_ID = 7332342681
+
+
+def _run_fetch(config, script_path):
+    """
+    Runs fusionsolar_fetch.py as a subprocess.
+    Passes config as JSON via stdin, reads result as JSON from stdout.
+    Completely outside pyscript AST — no wrapping possible.
+    """
+    result = subprocess.run(
+        ["python3", script_path],
+        input=json.dumps(config),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"fusionsolar_fetch.py exit {result.returncode}: {result.stderr.strip()}")
+    return json.loads(result.stdout)
 
 
 def _flush_logs(logs):
@@ -56,12 +74,11 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
     log.debug(f"FusionSolar: ✅ {entity_id} = {value} {unit or ''}")
 
 
-@time_trigger(CONFIG["update_every"])
+@time_trigger("period(now, 2min)")
 def update_fusionsolar_sensors():
     log.info("FusionSolar: ▶ update (toutes les 2 min)")
     try:
-        # fusionsolar_lib.fetch is a plain Python function — safe for task.executor
-        data = task.executor(fusionsolar_lib.fetch, CONFIG)
+        data = task.executor(_run_fetch, CONFIG, SCRIPT_PATH)
         _flush_logs(data.get("logs"))
 
         status = data.get("status", "ok")
@@ -72,7 +89,6 @@ def update_fusionsolar_sensors():
             f"load={data.get('load_power_kw')}kW daily={data.get('daily_energy_kwh')}kWh"
         )
 
-        # ── Telegram ──
         status_icon = "✅" if status == "ok" else ("⚠️" if status == "partial" else "❌")
         tg_msg = (
             f"{status_icon} *FusionSolar* — {datetime.now(timezone.utc).strftime('%H:%M UTC')}\n"
@@ -92,7 +108,6 @@ def update_fusionsolar_sensors():
         _send_telegram(tg_msg)
         log.info("FusionSolar: 💬 Telegram envoyé")
 
-        # ── HA sensors ──
         attrs = {
             "plant_dn":        data.get("plant_dn"),
             "last_update_utc": data.get("ts_utc"),
@@ -118,10 +133,10 @@ def update_fusionsolar_sensors():
         state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(),  new_attributes=attrs)
 
         metrics_ok = 0
-        if data.get("pv_power_kw")         is not None: metrics_ok += 1
-        if data.get("load_power_kw")        is not None: metrics_ok += 1
-        if data.get("grid_import_kw")       is not None: metrics_ok += 1
-        if data.get("battery_soc_percent")  is not None: metrics_ok += 1
+        if data.get("pv_power_kw")        is not None: metrics_ok += 1
+        if data.get("load_power_kw")       is not None: metrics_ok += 1
+        if data.get("grid_import_kw")      is not None: metrics_ok += 1
+        if data.get("battery_soc_percent") is not None: metrics_ok += 1
         log.info(f"FusionSolar: ✅ update complet — {metrics_ok}/4 métriques disponibles")
 
     except Exception as e:
