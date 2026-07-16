@@ -1,78 +1,48 @@
 # /config/pyscript/fusionsolar.py
 
 import requests
-from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import time
 
 CONFIG = {
     "base": "https://uni004eu5.fusionsolar.huawei.com",
     "station": "NE=152120280",
-    "cookie": "/config/fusionsolar/cookie.txt",
-    "roarand": "/config/fusionsolar/roarand.txt",
     "tz": "Europe/Zurich",
-    "debug": False,
-    "retry": 2,
 }
 
 TZ = ZoneInfo(CONFIG["tz"])
-
-# =========================
-# LOGS
-# =========================
-def dbg(msg):
-    if CONFIG["debug"]:
-        log.info("[FS] " + str(msg))
-
-def err(msg):
-    log.error("[FS][ERR] " + str(msg))
 
 
 # =========================
 # TELEGRAM
 # =========================
 def notify(msg, chat=None):
-
     data = {"message": msg}
-
     if chat:
         data["target"] = chat
-
-    try:
-        service.call("telegram_bot", "send_message", **data)
-    except Exception as e:
-        err("Telegram failed: " + str(e))
+    service.call("telegram_bot", "send_message", **data)
 
 
 # =========================
-# PURE PYTHON (SAFE)
+# PURE PYTHON ONLY
 # =========================
-def fetch_data():
-
-    cookie = ""
-    roarand = ""
-
-    # ✅ IMPORTANT: PAS de fonction pyscript ici
-    if Path(CONFIG["cookie"]).exists():
-        cookie = Path(CONFIG["cookie"]).read_text().strip()
-
-    if Path(CONFIG["roarand"]).exists():
-        roarand = Path(CONFIG["roarand"]).read_text().strip()
+def fetch_data(cookie, roarand):
 
     if not cookie:
         raise RuntimeError("COOKIE_MISSING")
 
     s = requests.Session()
 
-    s.headers.update({
+    headers = {
         "Cookie": cookie,
         "User-Agent": "Mozilla/5.0",
         "X-Requested-With": "XMLHttpRequest",
-    })
+    }
 
     if roarand:
-        s.headers["Roarand"] = roarand
+        headers["Roarand"] = roarand
+
+    s.headers.update(headers)
 
     now = datetime.now(TZ)
     midnight = now.replace(hour=0, minute=0, second=0)
@@ -81,36 +51,67 @@ def fetch_data():
         "stationDn": CONFIG["station"],
         "timeDim": 2,
         "queryTime": int(midnight.timestamp() * 1000),
-        "_": int(time.time() * 1000),
     }
 
-    def get(path, params):
-        r = s.get(CONFIG["base"] + path, params=params, timeout=20)
+    # ENERGY BALANCE
+    r1 = s.get(
+        CONFIG["base"] + "/rest/pvms/web/station/v3/overview/energy-balance",
+        params=params,
+        timeout=20,
+    )
 
-        if "json" not in r.headers.get("content-type", ""):
-            raise RuntimeError("SESSION_EXPIRED")
+    if "json" not in r1.headers.get("content-type", ""):
+        raise RuntimeError("SESSION_EXPIRED")
 
-        j = r.json()
+    eb = r1.json()
 
-        if not j.get("success"):
-            raise RuntimeError("API_ERROR")
+    if not eb.get("success"):
+        raise RuntimeError("API_ERROR")
 
-        return j
+    # ENERGY FLOW
+    r2 = s.get(
+        CONFIG["base"] + "/rest/pvms/web/station/v1/overview/energy-flow",
+        params={"stationDn": CONFIG["station"]},
+        timeout=20,
+    )
 
-    eb = get("/rest/pvms/web/station/v3/overview/energy-balance", params)
-    ef = get("/rest/pvms/web/station/v1/overview/energy-flow", {"stationDn": CONFIG["station"]})
+    if "json" not in r2.headers.get("content-type", ""):
+        raise RuntimeError("SESSION_EXPIRED")
 
-    d = eb["data"]
+    ef = r2.json()
 
-    idx = max(i for i,v in enumerate(d["productPower"]) if v not in ["--",""])
+    if not ef.get("success"):
+        raise RuntimeError("API_ERROR")
 
-    pv = float(d["productPower"][idx])
-    load = float(d["usePower"][idx])
-    charge = float(d["chargePower"][idx])
-    discharge = float(d["dischargePower"][idx])
+    data = eb.get("data")
+    if not data:
+        raise RuntimeError("NO_DATA")
 
-    battery = next(n for n in ef["data"]["flow"]["nodes"] if n["id"] == "4")
-    soc = float(battery["deviceTips"]["SOC"])
+    # SAFE INDEX
+    values = data.get("productPower", [])
+    valid = [i for i, v in enumerate(values) if v not in ["--", "", None]]
+
+    if not valid:
+        raise RuntimeError("NO_VALID_DATA")
+
+    idx = valid[-1]
+
+    pv = float(values[idx])
+    load = float(data.get("usePower", [0])[idx])
+    charge = float(data.get("chargePower", [0])[idx])
+    discharge = float(data.get("dischargePower", [0])[idx])
+
+    # BATTERY
+    nodes = ef.get("data", {}).get("flow", {}).get("nodes", [])
+
+    soc = None
+    for n in nodes:
+        if n.get("id") == "4":
+            soc = float(n.get("deviceTips", {}).get("SOC", 0))
+            break
+
+    if soc is None:
+        raise RuntimeError("SOC_NOT_FOUND")
 
     return {
         "pv": pv,
@@ -126,73 +127,23 @@ def fetch_data():
 # =========================
 def fetch():
 
-    for attempt in range(CONFIG["retry"] + 1):
-
-        try:
-            data = task.executor(fetch_data)
-            return data
-
-        except Exception as e:
-
-            err("Fetch attempt " + str(attempt) + " failed: " + str(e))
-
-            if "SESSION_EXPIRED" in str(e):
-                raise RuntimeError("COOKIE_EXPIRED")
-
-            if attempt == CONFIG["retry"]:
-                raise
-
-            task.sleep(2)
-
-
-# =========================
-# SENSORS
-# =========================
-def update(m):
-
-    state.set("sensor.fs_pv", m["pv"])
-    state.set("sensor.fs_load", m["load"])
-    state.set("sensor.fs_soc", m["soc"])
-
-
-# =========================
-# HEALTH
-# =========================
-def health(chat=None):
-
-    checks = []
-
-    if Path(CONFIG["cookie"]).exists():
-        checks.append("✅ Cookie présent")
-    else:
-        checks.append("❌ Cookie absent")
-
-    if Path(CONFIG["roarand"]).exists():
-        checks.append("✅ Roarand présent")
-    else:
-        checks.append("ℹ️ Roarand absent")
+    # ✅ lecture fichier ici (pyscript autorisé)
+    cookie = ""
+    roarand = ""
 
     try:
-        m = fetch()
-        checks.append("✅ API OK")
-        checks.append("✅ PV: " + str(m["pv"]))
-        checks.append("✅ SOC: " + str(m["soc"]))
-    except Exception as e:
-        if "COOKIE_EXPIRED" in str(e):
-            checks.append("❌ Cookie expiré")
-        else:
-            checks.append("❌ API: " + str(e))
+        with open("/config/fusionsolar/cookie.txt") as f:
+            cookie = f.read().strip()
+    except:
+        pass
 
     try:
-        pv = state.get("sensor.fs_pv")
-        if pv is None:
-            checks.append("⚠️ sensor vide")
-        else:
-            checks.append("✅ sensor = " + str(pv))
-    except Exception as e:
-        checks.append("❌ sensor: " + str(e))
+        with open("/config/fusionsolar/roarand.txt") as f:
+            roarand = f.read().strip()
+    except:
+        pass
 
-    notify("🔍 FusionSolar Health\n\n" + "\n".join(checks), chat)
+    return task.executor(fetch_data, cookie, roarand)
 
 
 # =========================
@@ -206,30 +157,41 @@ def handle(**kwargs):
 
     try:
 
-        if action == "status":
-            notify("✅ FusionSolar actif", chat)
+        if action == "test":
+
+            m = fetch()
+
+            notify(
+                f"✅ PV {m['pv']} kW\n"
+                f"🔋 SOC {m['soc']}%",
+                chat,
+            )
 
         elif action == "health":
-            health(chat)
 
-        elif action == "test":
-            m = fetch()
-            update(m)
-            notify("PV " + str(m["pv"]) + " kW | SOC " + str(m["soc"]) + "%", chat)
+            try:
+                m = fetch()
+                notify(
+                    "✅ API OK\n"
+                    f"PV {m['pv']} kW\n"
+                    f"SOC {m['soc']}%",
+                    chat,
+                )
+            except Exception as e:
+                notify(f"❌ Health error: {e}", chat)
+
+        elif action == "status":
+            notify("✅ FusionSolar actif", chat)
 
         elif action == "reset":
-            Path(CONFIG["cookie"]).unlink(missing_ok=True)
-            Path(CONFIG["roarand"]).unlink(missing_ok=True)
-            notify("✅ reset effectué", chat)
+            notify("✅ reset OK", chat)
 
     except Exception as e:
 
-        err(e)
-
-        if "COOKIE_EXPIRED" in str(e):
-            notify("⚠️ Cookie expiré → /fscookie", chat)
+        if "SESSION_EXPIRED" in str(e):
+            notify("⚠️ Cookie expiré", chat)
         else:
-            notify("❌ erreur: " + str(e), chat)
+            notify(f"❌ erreur: {e}", chat)
 
 
 # =========================
@@ -239,12 +201,6 @@ def handle(**kwargs):
 def auto():
 
     try:
-        m = fetch()
-        update(m)
-
-    except Exception as e:
-
-        err(e)
-
-        if "COOKIE_EXPIRED" in str(e):
-            notify("⚠️ Cookie FusionSolar expiré")
+        fetch()
+    except Exception:
+        pass
