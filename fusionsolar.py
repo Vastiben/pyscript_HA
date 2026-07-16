@@ -1,17 +1,9 @@
 """
-/config/pyscript/fusionsolar.py
+🔹 FusionSolar Collector
+🔹 Met à jour sensors HA
+🔹 Répond aux commandes Telegram
 
-🔹 Récupération FusionSolar
-🔹 Sensors Home Assistant
-🔹 Réponses Telegram via événements
-
-Architecture:
-telegram_commands → event → fusionsolar
-
-Endpoints:
-- energy-balance
-- energy-flow
-- station-real-kpi
+Logs: [FS]
 """
 
 import requests
@@ -20,14 +12,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import time
 
-# =========================
-# CONFIG
-# =========================
 CONFIG = {
     "base": "https://uni004eu5.fusionsolar.huawei.com",
     "station": "NE=152120280",
-    "cookie_file": "/config/fusionsolar/cookie.txt",
-    "roarand_file": "/config/fusionsolar/roarand.txt",
+    "cookie": "/config/fusionsolar/cookie.txt",
+    "roarand": "/config/fusionsolar/roarand.txt",
     "tz": "Europe/Zurich",
     "debug": True,
 }
@@ -46,21 +35,33 @@ dbg("✅ fusionsolar.py chargé")
 # =========================
 # HELPERS
 # =========================
-def read_file(path):
+def read(path):
     p = Path(path)
-    if not p.exists():
-        return ""
-    return p.read_text().strip()
+    return p.read_text().strip() if p.exists() else ""
 
 
+def notify(msg, chat=None):
+    dbg(f"Notify → {msg[:50]}")
+    data = {"message": msg}
+    if chat:
+        data["target"] = chat
+
+    service.call("telegram_bot", "send_message", **data)
+
+
+# =========================
+# API
+# =========================
 def session():
-    cookie = read_file(CONFIG["cookie_file"])
-    roarand = read_file(CONFIG["roarand_file"])
+
+    cookie = read(CONFIG["cookie"])
+    roarand = read(CONFIG["roarand"])
 
     if not cookie:
         raise RuntimeError("Cookie manquant")
 
     s = requests.Session()
+
     s.headers.update({
         "Cookie": cookie,
         "User-Agent": "Mozilla/5.0",
@@ -73,7 +74,8 @@ def session():
     return s
 
 
-def get_json(s, path, params):
+def get(s, path, params):
+
     url = CONFIG["base"] + path
     dbg(f"GET {path}")
 
@@ -82,12 +84,12 @@ def get_json(s, path, params):
     if "json" not in r.headers.get("content-type", ""):
         raise RuntimeError("Session expirée")
 
-    data = r.json()
+    j = r.json()
 
-    if not data.get("success"):
+    if not j.get("success"):
         raise RuntimeError("API erreur")
 
-    return data
+    return j
 
 
 # =========================
@@ -107,8 +109,8 @@ def fetch():
         "_": int(time.time() * 1000),
     }
 
-    eb = get_json(s, "/rest/pvms/web/station/v3/overview/energy-balance", params)
-    ef = get_json(s, "/rest/pvms/web/station/v1/overview/energy-flow", {"stationDn": CONFIG["station"]})
+    eb = get(s, "/rest/pvms/web/station/v3/overview/energy-balance", params)
+    ef = get(s, "/rest/pvms/web/station/v1/overview/energy-flow", {"stationDn": CONFIG["station"]})
 
     return extract(eb, ef)
 
@@ -118,36 +120,34 @@ def fetch():
 # =========================
 def extract(eb, ef):
 
-    data = eb["data"]
+    d = eb["data"]
 
-    # dernier index valide
-    idx = max(i for i,v in enumerate(data["productPower"]) if v not in ["--", ""])
+    idx = max(i for i,v in enumerate(d["productPower"]) if v not in ["--", ""])
 
-    pv = float(data["productPower"][idx])
-    load = float(data["usePower"][idx])
-    charge = float(data["chargePower"][idx])
-    discharge = float(data["dischargePower"][idx])
+    pv = float(d["productPower"][idx])
+    load = float(d["usePower"][idx])
+    charge = float(d["chargePower"][idx])
+    discharge = float(d["dischargePower"][idx])
 
-    nodes = ef["data"]["flow"]["nodes"]
+    battery = next(n for n in ef["data"]["flow"]["nodes"] if n["id"] == "4")
 
-    battery = next(n for n in nodes if n["id"] == "4")
     soc = float(battery["deviceTips"]["SOC"])
 
-    dbg(f"PV={pv} Load={load} SOC={soc}")
+    dbg(f"PV={pv} LOAD={load} SOC={soc}")
 
     return {
         "pv": pv,
         "load": load,
+        "soc": soc,
         "charge": charge,
         "discharge": discharge,
-        "soc": soc,
     }
 
 
 # =========================
 # SENSORS
 # =========================
-def update_sensors(m):
+def update(m):
 
     state.set("sensor.fs_pv", m["pv"])
     state.set("sensor.fs_load", m["load"])
@@ -157,7 +157,7 @@ def update_sensors(m):
 
 
 # =========================
-# TELEGRAM EVENT HANDLER
+# TELEGRAM COMMAND HANDLER
 # =========================
 @event_trigger("fusionsolar_command")
 def handle(**kwargs):
@@ -174,12 +174,12 @@ def handle(**kwargs):
 
         elif action == "test":
             m = task.executor(fetch)
-            update_sensors(m)
+            update(m)
             notify(f"PV {m['pv']} kW | SOC {m['soc']}%", chat)
 
         elif action == "reset":
-            Path(CONFIG["cookie_file"]).unlink(missing_ok=True)
-            Path(CONFIG["roarand_file"]).unlink(missing_ok=True)
+            Path(CONFIG["cookie"]).unlink(missing_ok=True)
+            Path(CONFIG["roarand"]).unlink(missing_ok=True)
             notify("✅ reset effectué", chat)
 
     except Exception as e:
@@ -187,7 +187,13 @@ def handle(**kwargs):
 
 
 # =========================
-# NOTIFY
+# AUTOMATIQUE (optionnel)
 # =========================
-def notify(msg, chat=None):
-    service.call("telegram_bot.send_message", message=msg, target=chat)
+@time_trigger("period(now, 5min)")
+def auto():
+
+    try:
+        m = task.executor(fetch)
+        update(m)
+    except Exception as e:
+        dbg(f"Auto error: {e}")
