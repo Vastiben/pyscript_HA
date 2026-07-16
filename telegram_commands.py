@@ -1,30 +1,21 @@
 """
-/config/pyscript/telegram_commands.py
-
-🔹 Router Telegram générique pour Pyscript
+🔹 Telegram Command Router (générique)
 🔹 Centralise toutes les commandes
-🔹 Sécurisé (whitelist fichiers)
-🔹 Extensible pour d'autres apps
+🔹 Envoie des events vers les apps (FusionSolar, etc.)
 
 Architecture:
-Telegram → telegram_commands → event interne → app (ex: fusionsolar)
+Telegram → telegram_commands → event → app
 
-Auteur: Bastien + ChatGPT 😄
+Logs: [TG]
 """
 
 from pathlib import Path
 from datetime import datetime
 
-# =========================
-# CONFIGURATION
-# =========================
 CONFIG = {
-    "telegram_domain": "telegram_bot",
-    "telegram_service": "send_message",
-    "allowed_chat_ids": [],  # sécurité (mettre ton chat_id)
+    "allowed_chat_ids": [],  # optionnel sécurité
     "debug": True,
 }
-
 
 # =========================
 # DEBUG
@@ -39,25 +30,22 @@ dbg("✅ telegram_commands.py chargé")
 # COMMANDES
 # =========================
 COMMANDS = {
-    "/help": {"type": "help", "desc": "Afficher l'aide"},
+    "/tghelp": {"type": "help"},
 
-    "/cookie": {
+    "/fscookie": {
         "type": "write",
         "path": "/config/fusionsolar/cookie.txt",
-        "desc": "Enregistrer cookie FusionSolar",
         "min": 20,
-        "contains": "=",
     },
 
-    "/roarand": {
+    "/fsroarand": {
         "type": "write",
         "path": "/config/fusionsolar/roarand.txt",
-        "desc": "Enregistrer Roarand",
     },
 
-    "/status": {"type": "event", "event": "fusionsolar_command", "action": "status"},
-    "/test": {"type": "event", "event": "fusionsolar_command", "action": "test"},
-    "/reset": {"type": "event", "event": "fusionsolar_command", "action": "reset"},
+    "/fsstatus": {"type": "event", "action": "status"},
+    "/fstest": {"type": "event", "action": "test"},
+    "/fsreset": {"type": "event", "action": "reset"},
 }
 
 ALLOWED_PATHS = {
@@ -73,13 +61,8 @@ def notify(msg, chat_id=None):
     data = {"message": msg}
     if chat_id:
         data["target"] = chat_id
-    service.call(CONFIG["telegram_domain"], CONFIG["telegram_service"], **data)
 
-
-def allowed(chat_id):
-    if not CONFIG["allowed_chat_ids"]:
-        return True
-    return int(chat_id) in CONFIG["allowed_chat_ids"]
+    service.call("telegram_bot", "send_message", **data)
 
 
 def parse_args(args):
@@ -89,86 +72,71 @@ def parse_args(args):
 
 
 # =========================
-# ACTIONS
-# =========================
-def handle_write(cmd, spec, text, chat_id):
-    dbg(f"WRITE {cmd} len={len(text)}")
-
-    if len(text) < spec.get("min", 0):
-        notify("❌ contenu trop court", chat_id)
-        return
-
-    if spec.get("contains") and spec["contains"] not in text:
-        notify("❌ contenu invalide", chat_id)
-        return
-
-    path = spec["path"]
-
-    if path not in ALLOWED_PATHS:
-        notify("❌ accès interdit", chat_id)
-        return
-
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(text.strip())
-
-    notify("✅ enregistré", chat_id)
-
-
-def handle_event(spec, text, chat_id):
-    dbg(f"EVENT → {spec['event']} / {spec['action']}")
-    event.fire(
-        spec["event"],
-        action=spec["action"],
-        chat_id=chat_id,
-        text=text,
-        ts=datetime.now().isoformat(),
-    )
-
-
-def help_text():
-    return "\n".join(
-        ["🤖 Commandes disponibles:\n"]
-        + [f"{k} → {v.get('desc','')}" for k, v in COMMANDS.items()]
-    )
-
-
-# =========================
-# ROUTER PRINCIPAL
+# ROUTER
 # =========================
 @event_trigger("telegram_command")
-def telegram_router(**kwargs):
+def router(**kwargs):
 
-    dbg(f"RAW EVENT: {kwargs}")
+    dbg(f"RAW: {kwargs}")
 
-    chat_id = kwargs.get("chat_id")
-    command = kwargs.get("command")
+    cmd = (kwargs.get("command") or "").lower().replace("_", "")
     text = parse_args(kwargs.get("args"))
+    chat = kwargs.get("chat_id")
 
-    if not command:
-        return
+    dbg(f"CMD={cmd} TEXT_LEN={len(text)}")
 
-    if not allowed(chat_id):
-        dbg("⛔ chat refusé")
-        return
-
-    spec = COMMANDS.get(command)
+    spec = COMMANDS.get(cmd)
 
     if not spec:
-        notify("❌ commande inconnue\n\n" + help_text(), chat_id)
+        notify("❌ commande inconnue", chat)
         return
 
-    dbg(f"CMD → {command}")
+    # =====================
+    # HELP
+    # =====================
+    if spec["type"] == "help":
+        notify(
+            "🤖 Commandes:\n"
+            "/fscookie\n"
+            "/fsstatus\n"
+            "/fstest\n"
+            "/fsreset",
+            chat,
+        )
 
-    try:
-        if spec["type"] == "help":
-            notify(help_text(), chat_id)
+    # =====================
+    # WRITE FILE
+    # =====================
+    elif spec["type"] == "write":
 
-        elif spec["type"] == "write":
-            handle_write(command, spec, text, chat_id)
+        if len(text) < spec.get("min", 0):
+            notify("❌ contenu trop court", chat)
+            return
 
-        elif spec["type"] == "event":
-            handle_event(spec, text, chat_id)
+        path = spec["path"]
 
-    except Exception as e:
-        log.error(f"[TG ERROR] {e}")
-        notify(f"❌ erreur: {e}", chat_id)
+        if path not in ALLOWED_PATHS:
+            notify("❌ accès interdit", chat)
+            return
+
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).write_text(text.strip())
+
+        dbg(f"Fichier écrit: {path}")
+
+        notify("✅ enregistré", chat)
+
+    # =====================
+    # EVENT
+    # =====================
+    elif spec["type"] == "event":
+
+        dbg(f"Fire event → {spec['action']}")
+
+        event.fire(
+            "fusionsolar_command",
+            action=spec["action"],
+            chat_id=chat,
+            text=text,
+            ts=datetime.now().isoformat(),
+        )
