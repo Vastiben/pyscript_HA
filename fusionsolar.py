@@ -2,22 +2,8 @@
 /config/pyscript/fusionsolar.py
 
 FusionSolar -> Home Assistant sensors + Telegram every 5 minutes.
-
-This file no longer handles raw Telegram commands directly.
-It reacts to internal events fired by telegram_commands.py:
-  event_type: fusionsolar_command
-  data.action: status | test | reset
-
-Secrets are read from:
-  /config/fusionsolar/cookie.txt
-  /config/fusionsolar/roarand.txt
-
-Use Telegram commands handled by telegram_commands.py:
-  /fs_cookie <cookie>
-  /fs_roarand <roarand>
-  /fs_status
-  /fs_test
-  /fs_reset
+With verbose debug logs prefixed by [FUSIONSOLAR].
+Set DEBUG=False once everything works.
 """
 
 import time
@@ -27,18 +13,16 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+DEBUG = True
+
 CONFIG = {
     "base_url": "https://uni004eu5.fusionsolar.huawei.com",
     "station_dn": "NE=152120280",
     "timezone": "Europe/Zurich",
-
     "cookie_file": "/config/fusionsolar/cookie.txt",
     "roarand_file": "/config/fusionsolar/roarand.txt",
-
-    # Telegram notify service for periodic messages and replies to fusionsolar_command events.
     "telegram_domain": "notify",
     "telegram_service": "telegram",
-
     "send_telegram_every_run": True,
     "update_interval": "period(now, 5min)",
 }
@@ -49,28 +33,47 @@ STATION_REAL_KPI_PATH = "/rest/pvms/web/station/v1/overview/station-real-kpi"
 TZ = ZoneInfo(CONFIG["timezone"])
 
 
+def dbg(msg):
+    if DEBUG:
+        log.info(f"[FUSIONSOLAR] {msg}")
+
+
+dbg("fusionsolar.py chargé")
+
+
 def _read_text_file(path, default=""):
     p = Path(path)
-    if not p.exists():
+    exists = p.exists()
+    dbg(f"Lecture fichier: {path}, exists={exists}")
+    if not exists:
         return default
-    return p.read_text(encoding="utf-8").strip()
+    value = p.read_text(encoding="utf-8").strip()
+    dbg(f"Fichier lu: {path}, length={len(value)}")
+    return value
 
 
 def _delete_file(path):
     p = Path(path)
     if p.exists():
         p.unlink()
+        dbg(f"Fichier supprimé: {path}")
+    else:
+        dbg(f"Fichier absent, rien à supprimer: {path}")
 
 
 def _get_cookie():
     cookie = _read_text_file(CONFIG["cookie_file"])
     if not cookie:
+        dbg("Cookie absent")
         raise RuntimeError("FusionSolar cookie missing. Send it with /fs_cookie <cookie>.")
+    dbg(f"Cookie présent, length={len(cookie)}")
     return cookie
 
 
 def _get_roarand():
-    return _read_text_file(CONFIG["roarand_file"])
+    roarand = _read_text_file(CONFIG["roarand_file"])
+    dbg(f"Roarand présent={bool(roarand)}, length={len(roarand)}")
+    return roarand
 
 
 def _float(value, default=None):
@@ -111,6 +114,7 @@ def _fmt(v, unit="", ndigits=2):
 
 
 def _notify(message, target=None):
+    dbg(f"Notification: target={target}, message_length={len(str(message))}")
     kwargs = {"message": message}
     if target is not None:
         kwargs["target"] = target
@@ -118,16 +122,14 @@ def _notify(message, target=None):
 
 
 def _session():
+    dbg("Création session requests")
     cookie = _get_cookie()
     roarand = _get_roarand()
     s = requests.Session()
     headers = {
         "Cookie": cookie,
         "Accept": "application/json, text/javascript, */*; q=0.01",
-        "User-Agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
-        ),
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
         "X-Requested-With": "XMLHttpRequest",
         "X-Timezone-Offset": "120",
         "Referer": CONFIG["base_url"] + "/uniportal/pvmswebsite/assets/build/cloud.html",
@@ -135,17 +137,22 @@ def _session():
     if roarand:
         headers["Roarand"] = roarand
     s.headers.update(headers)
+    dbg(f"Session prête, headers={list(headers.keys())}")
     return s
 
 
 def _get_json(session, path, params):
     url = CONFIG["base_url"].rstrip("/") + path
+    dbg(f"GET {path}, params={params}")
     r = session.get(url, params=params, timeout=30)
+    dbg(f"Réponse {path}: status={r.status_code}, content_type={r.headers.get('content-type', '')}")
     r.raise_for_status()
     content_type = r.headers.get("content-type", "")
     if "json" not in content_type.lower():
+        dbg(f"Réponse non JSON pour {path}, extrait={r.text[:120]}")
         raise RuntimeError("FusionSolar returned non-JSON. Cookie/session likely expired.")
     payload = r.json()
+    dbg(f"JSON reçu pour {path}: success={payload.get('success')}, keys={list(payload.keys())}")
     if not payload.get("success", False):
         raise RuntimeError("FusionSolar API success=false: " + json.dumps(payload, ensure_ascii=False)[:500])
     return payload
@@ -182,6 +189,7 @@ def fetch_station_real_kpi(session):
     try:
         return _get_json(session, STATION_REAL_KPI_PATH, _station_params())
     except Exception as e:
+        dbg(f"station-real-kpi ignoré suite erreur: {e}")
         return {"success": False, "_error": str(e), "data": {}}
 
 
@@ -193,7 +201,9 @@ def _last_valid_index(data, keys):
         for key in keys:
             values = data.get(key, [])
             if i < len(values) and _float(values[i]) is not None:
+                dbg(f"Dernier index valide: i={i}, key={key}, timestamp={x_axis[i] if i < len(x_axis) else None}")
                 return i
+    dbg("Aucun index valide trouvé")
     return None
 
 
@@ -233,6 +243,7 @@ def _link_value_by_label_contains(flow_data, text):
 
 
 def extract_metrics(energy_balance, energy_flow, station_real_kpi):
+    dbg("Extraction métriques")
     eb = energy_balance.get("data", {})
     ef = energy_flow or {}
     kpi = station_real_kpi.get("data", {}) if station_real_kpi else {}
@@ -272,7 +283,7 @@ def extract_metrics(energy_balance, energy_flow, station_real_kpi):
         net_export = pv_kw + dis - ch - load_kw - imp
     grid_export_kw = max(net_export, 0.0) if net_export is not None else None
 
-    return {
+    metrics = {
         "timestamp": timestamp,
         "pv_power_kw": pv_kw,
         "load_power_kw": load_kw,
@@ -297,18 +308,24 @@ def extract_metrics(energy_balance, energy_flow, station_real_kpi):
         "station_dn": CONFIG["station_dn"],
         "last_update": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
     }
+    dbg(f"Métriques extraites: PV={pv_kw}, load={load_kw}, SOC={soc}, charge={battery_charge_kw}, discharge={battery_discharge_kw}, import={grid_import_kw}, export={grid_export_kw}")
+    return metrics
 
 
 def fetch_all_sync():
+    dbg("Début fetch_all_sync")
     s = _session()
     eb = fetch_energy_balance(s)
     ef = fetch_energy_flow(s)
     kpi = fetch_station_real_kpi(s)
-    return extract_metrics(eb, ef, kpi)
+    metrics = extract_metrics(eb, ef, kpi)
+    dbg(f"Fetch OK: PV={metrics.get('pv_power_kw')}, SOC={metrics.get('battery_soc_percent')}")
+    return metrics
 
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class="measurement", attrs=None):
     if value is None:
+        dbg(f"Sensor non mis à jour car valeur None: {entity_id}")
         return
     attributes = dict(attrs or {})
     if unit:
@@ -318,15 +335,12 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class="mea
     if state_class:
         attributes["state_class"] = state_class
     state.set(entity_id, value=_round(value), new_attributes=attributes)
+    dbg(f"Sensor mis à jour: {entity_id}={_round(value)} {unit or ''}")
 
 
 def update_sensors(m):
-    attrs = {
-        "station_dn": m.get("station_dn"),
-        "fusion_timestamp": m.get("timestamp"),
-        "last_update": m.get("last_update"),
-        "charge_mode": m.get("charge_mode"),
-    }
+    dbg("Mise à jour sensors")
+    attrs = {"station_dn": m.get("station_dn"), "fusion_timestamp": m.get("timestamp"), "last_update": m.get("last_update"), "charge_mode": m.get("charge_mode")}
     _set_sensor("sensor.fusionsolar_pv_power", m.get("pv_power_kw"), "kW", "power", attrs=attrs)
     _set_sensor("sensor.fusionsolar_load_power", m.get("load_power_kw"), "kW", "power", attrs=attrs)
     _set_sensor("sensor.fusionsolar_self_use_power", m.get("self_use_power_kw"), "kW", "power", attrs=attrs)
@@ -348,30 +362,16 @@ def update_sensors(m):
     _set_sensor("sensor.fusionsolar_battery_discharge_today", m.get("battery_discharge_today_kwh"), "kWh", "energy", "total_increasing", attrs)
     state.set("sensor.fusionsolar_status", value="ok", new_attributes=attrs)
     state.set("sensor.fusionsolar_last_update", value=m.get("last_update"), new_attributes=attrs)
+    dbg("Sensors terminés")
 
 
 def build_telegram_message(m):
-    return (
-        "☀️ FusionSolar\n"
-        f"🕒 {m.get('last_update')}\n\n"
-        f"Production PV: {_fmt(m.get('pv_power_kw'), 'kW')}\n"
-        f"Consommation: {_fmt(m.get('load_power_kw'), 'kW')}\n"
-        f"Autoconsommation: {_fmt(m.get('self_use_power_kw'), 'kW')}\n\n"
-        f"🔋 Batterie: {_fmt(m.get('battery_soc_percent'), '%', 0)}\n"
-        f"Charge: {_fmt(m.get('battery_charge_kw'), 'kW')}\n"
-        f"Décharge: {_fmt(m.get('battery_discharge_kw'), 'kW')}\n\n"
-        f"⚡ Import réseau: {_fmt(m.get('grid_import_kw'), 'kW')}\n"
-        f"⚡ Export réseau: {_fmt(m.get('grid_export_kw'), 'kW')}\n\n"
-        f"📊 Aujourd'hui\n"
-        f"PV: {_fmt(m.get('daily_energy_kwh'), 'kWh')}\n"
-        f"Conso: {_fmt(m.get('daily_consumption_kwh'), 'kWh')}\n"
-        f"Import: {_fmt(m.get('daily_import_kwh'), 'kWh')}\n"
-        f"Export: {_fmt(m.get('daily_export_kwh'), 'kWh')}"
-    )
+    return ("☀️ FusionSolar\n" f"🕒 {m.get('last_update')}\n\n" f"Production PV: {_fmt(m.get('pv_power_kw'), 'kW')}\n" f"Consommation: {_fmt(m.get('load_power_kw'), 'kW')}\n" f"Autoconsommation: {_fmt(m.get('self_use_power_kw'), 'kW')}\n\n" f"🔋 Batterie: {_fmt(m.get('battery_soc_percent'), '%', 0)}\n" f"Charge: {_fmt(m.get('battery_charge_kw'), 'kW')}\n" f"Décharge: {_fmt(m.get('battery_discharge_kw'), 'kW')}\n\n" f"⚡ Import réseau: {_fmt(m.get('grid_import_kw'), 'kW')}\n" f"⚡ Export réseau: {_fmt(m.get('grid_export_kw'), 'kW')}\n\n" f"📊 Aujourd'hui\n" f"PV: {_fmt(m.get('daily_energy_kwh'), 'kWh')}\n" f"Conso: {_fmt(m.get('daily_consumption_kwh'), 'kWh')}\n" f"Import: {_fmt(m.get('daily_import_kwh'), 'kWh')}\n" f"Export: {_fmt(m.get('daily_export_kwh'), 'kWh')}")
 
 
 @time_trigger(CONFIG["update_interval"])
 def update_fusionsolar_every_5_min():
+    dbg("Trigger périodique FusionSolar")
     try:
         metrics = task.executor(fetch_all_sync)
         update_sensors(metrics)
@@ -379,24 +379,18 @@ def update_fusionsolar_every_5_min():
             _notify(build_telegram_message(metrics))
     except Exception as e:
         msg = str(e)
-        state.set(
-            "sensor.fusionsolar_status",
-            value="error",
-            new_attributes={
-                "error": msg,
-                "last_update": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"),
-                "station_dn": CONFIG.get("station_dn"),
-            },
-        )
+        dbg(f"Erreur trigger périodique: {msg}")
+        state.set("sensor.fusionsolar_status", value="error", new_attributes={"error": msg, "last_update": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"), "station_dn": CONFIG.get("station_dn")})
         try:
             _notify("⚠️ FusionSolar error\n" + msg)
         except Exception:
             pass
-        log.error(f"FusionSolar update failed: {msg}")
+        log.error(f"[FUSIONSOLAR] FusionSolar update failed: {msg}")
 
 
 @event_trigger("fusionsolar_command")
 def handle_fusionsolar_command(**kwargs):
+    dbg(f"Commande FusionSolar reçue: {kwargs}")
     action = kwargs.get("action")
     chat_id = kwargs.get("chat_id")
 
@@ -405,30 +399,27 @@ def handle_fusionsolar_command(**kwargs):
         roarand_exists = bool(_read_text_file(CONFIG["roarand_file"]))
         status = state.get("sensor.fusionsolar_status") or "unknown"
         last_update = state.get("sensor.fusionsolar_last_update") or "n/a"
-        _notify(
-            "ℹ️ FusionSolar status\n"
-            f"Cookie: {'présent' if cookie_exists else 'absent'}\n"
-            f"Roarand: {'présent' if roarand_exists else 'absent'}\n"
-            f"Status: {status}\n"
-            f"Last update: {last_update}",
-            target=chat_id,
-        )
+        _notify("ℹ️ FusionSolar status\n" f"Cookie: {'présent' if cookie_exists else 'absent'}\n" f"Roarand: {'présent' if roarand_exists else 'absent'}\n" f"Status: {status}\n" f"Last update: {last_update}", target=chat_id)
         return
 
     if action == "test":
         try:
+            dbg("Action test: fetch immédiat")
             metrics = task.executor(fetch_all_sync)
             update_sensors(metrics)
             _notify("✅ Test FusionSolar OK\n\n" + build_telegram_message(metrics), target=chat_id)
         except Exception as e:
+            dbg(f"Action test échouée: {e}")
             _notify("❌ Test FusionSolar échoué\n" + str(e), target=chat_id)
         return
 
     if action == "reset":
+        dbg("Action reset")
         _delete_file(CONFIG["cookie_file"])
         _delete_file(CONFIG["roarand_file"])
         state.set("sensor.fusionsolar_status", value="reset")
         _notify("✅ Secrets FusionSolar supprimés : cookie + Roarand.", target=chat_id)
         return
 
+    dbg(f"Action inconnue: {action}")
     _notify(f"❌ Action FusionSolar inconnue: {action}", target=chat_id)
