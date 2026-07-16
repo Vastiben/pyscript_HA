@@ -5,34 +5,35 @@ Put these two files in /config/pyscript/:
   - fusionsolar.py      (this file — pyscript triggers & HA state)
   - fusionsolar_lib.py  (pure Python logic — safe for task.executor)
 
-Then edit CONFIG below:
-  - paste the Cookie header captured from Edge/Chrome Network
-  - keep station_dn = NE=152120280 unless your plant changes
-
-Security:
-  - Do not commit this file to Git with the cookie inside.
+Edit CONFIG below and paste the Cookie header from Edge/Chrome DevTools.
+Never commit the real cookie to GitHub.
 """
 
-import importlib.util
 from datetime import datetime, timezone
 
 CONFIG = {
-    "base_url": "https://uni004eu5.fusionsolar.huawei.com",
-    "station_dn": "NE=152120280",
-    "referer": "https://uni004eu5.fusionsolar.huawei.com/uniportal/pvmswebsite/assets/build/cloud.html?app-id=smartpvms",
-    # Paste the complete Cookie request header value here:
-    "cookie": "JSESSIONID=8E8376C088D3F64C4CF6583194667806; locale=de-de; selfSettingLanguage=true; HWWAFSESID=2687b1ba28ef8d69890; HWWAFSESTIME=1784102659300; pageversion=0; x-gray-tag=common; SSO_TGC_=TGTX--1401507077-903635-b4hPl77IAcMIzENZrVf6qZfnOfmMmm00dZM; dp-session=x-vtsa1j2rhjg8tcc907qo4b1gs82rcbs7ntpd6przqrk5o9qlfznvim6kalvwtibxc81e7yjutdfsrs7w7sallddfun463t8bvw86eqddc65gdeg7o5nt3tpfnx5celhf; JSESSIONID=8B3C505245B975EF82195D8DD93DD703",
+    "base_url":    "https://uni004eu5.fusionsolar.huawei.com",
+    "station_dn":  "NE=152120280",
+    "referer":     "https://uni004eu5.fusionsolar.huawei.com/uniportal/pvmswebsite/assets/build/cloud.html",
+    "cookie":      "PASTE_EDGE_NETWORK_COOKIE_HERE",
+    "roarand":     "",   # optional — paste Roarand header value if present in DevTools
     "update_every": "period(now, 2min)",
 }
 
 TELEGRAM_CHAT_ID = 7332342681
+LIB_PATH = "/config/pyscript/fusionsolar_lib.py"
 
 
-def _load_lib():
-    spec = importlib.util.spec_from_file_location("fusionsolar_lib", "/config/pyscript/fusionsolar_lib.py")
-    mod = importlib.util.module_from_spec(spec)
+def _fetch_and_load(config, lib_path):
+    """
+    Pure Python function body — runs inside task.executor (real thread).
+    importlib.util is resolved by CPython here, NOT by pyscript's AST evaluator.
+    """
+    import importlib.util as ilu
+    spec = ilu.spec_from_file_location("fusionsolar_lib", lib_path)
+    mod  = ilu.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod
+    return mod.fetch(config)
 
 
 def _flush_logs(logs):
@@ -48,12 +49,8 @@ def _flush_logs(logs):
 
 
 def _send_telegram(message):
-    service.call(
-        "telegram_bot",
-        "send_message",
-        target=[TELEGRAM_CHAT_ID],
-        message=message
-    )
+    service.call("telegram_bot", "send_message",
+                 target=[TELEGRAM_CHAT_ID], message=message)
 
 
 def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None, attrs=None):
@@ -62,8 +59,8 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
         return
     a = dict(attrs or {})
     if unit:         a["unit_of_measurement"] = unit
-    if device_class: a["device_class"] = device_class
-    if state_class:  a["state_class"] = state_class
+    if device_class: a["device_class"]        = device_class
+    if state_class:  a["state_class"]         = state_class
     try:
         value = round(float(value), 3)
     except Exception:
@@ -74,21 +71,20 @@ def _set_sensor(entity_id, value, unit=None, device_class=None, state_class=None
 
 @time_trigger(CONFIG["update_every"])
 def update_fusionsolar_sensors():
-    log.info("FusionSolar: ▶ déclenchement update (toutes les 2 min)")
+    log.info("FusionSolar: ▶ update (toutes les 2 min)")
     try:
-        lib  = _load_lib()
-        data = task.executor(lib.fetch, CONFIG)
+        data = task.executor(_fetch_and_load, CONFIG, LIB_PATH)
         _flush_logs(data.get("logs"))
 
         status = data.get("status", "ok")
         log.info(
-            f"FusionSolar: données reçues — status={status} | "
-            f"PV={data.get('pv_power_kw')}kW | SOC={data.get('battery_soc_percent')}% | "
-            f"grid_import={data.get('grid_import_kw')}kW | grid_export={data.get('grid_export_kw')}kW | "
-            f"load={data.get('load_power_kw')}kW | daily={data.get('daily_energy_kwh')}kWh"
+            f"FusionSolar: reçu status={status} | "
+            f"PV={data.get('pv_power_kw')}kW SOC={data.get('battery_soc_percent')}% "
+            f"import={data.get('grid_import_kw')}kW export={data.get('grid_export_kw')}kW "
+            f"load={data.get('load_power_kw')}kW daily={data.get('daily_energy_kwh')}kWh"
         )
 
-        # ── Telegram summary avant l'écriture des sensors ──
+        # ── Telegram ──
         status_icon = "✅" if status == "ok" else ("⚠️" if status == "partial" else "❌")
         tg_msg = (
             f"{status_icon} *FusionSolar* — {datetime.now(timezone.utc).strftime('%H:%M UTC')}\n"
@@ -108,7 +104,7 @@ def update_fusionsolar_sensors():
         _send_telegram(tg_msg)
         log.info("FusionSolar: 💬 Telegram envoyé")
 
-        # ── Écriture des sensors HA ──
+        # ── HA sensors ──
         attrs = {
             "plant_dn":        data.get("plant_dn"),
             "last_update_utc": data.get("ts_utc"),
@@ -117,9 +113,7 @@ def update_fusionsolar_sensors():
         }
         if data.get("error"):
             attrs["error"] = data.get("error")
-            log.warning(f"FusionSolar: erreurs partielles — {data.get('error')}")
 
-        log.debug("FusionSolar: mise à jour des sensors HA...")
         _set_sensor("sensor.fusionsolar_pv_power",               data.get("pv_power_kw"),          "kW",  "power",   "measurement",      attrs)
         _set_sensor("sensor.fusionsolar_load_power",             data.get("load_power_kw"),         "kW",  "power",   "measurement",      attrs)
         _set_sensor("sensor.fusionsolar_grid_import_power",      data.get("grid_import_kw"),        "kW",  "power",   "measurement",      attrs)
@@ -132,16 +126,15 @@ def update_fusionsolar_sensors():
         _set_sensor("sensor.fusionsolar_yearly_energy",          data.get("yearly_energy_kwh"),     "kWh", "energy",  "total_increasing", attrs)
         _set_sensor("sensor.fusionsolar_total_energy",           data.get("total_energy_kwh"),      "kWh", "energy",  "total_increasing", attrs)
 
-        state.set("sensor.fusionsolar_status",       value=status,                                  new_attributes=attrs)
-        state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(),  new_attributes=attrs)
+        state.set("sensor.fusionsolar_status",       value=status,                                 new_attributes=attrs)
+        state.set("sensor.fusionsolar_last_success", value=datetime.now(timezone.utc).isoformat(), new_attributes=attrs)
 
-        # Explicit count — pyscript does not support generator expressions (ast_generatorexp)
         metrics_ok = 0
-        if data.get("pv_power_kw")      is not None: metrics_ok += 1
-        if data.get("load_power_kw")    is not None: metrics_ok += 1
-        if data.get("grid_import_kw")   is not None: metrics_ok += 1
+        if data.get("pv_power_kw")        is not None: metrics_ok += 1
+        if data.get("load_power_kw")       is not None: metrics_ok += 1
+        if data.get("grid_import_kw")      is not None: metrics_ok += 1
         if data.get("battery_soc_percent") is not None: metrics_ok += 1
-        log.info(f"FusionSolar: ✅ update complet — {metrics_ok}/4 métriques principales disponibles")
+        log.info(f"FusionSolar: ✅ update complet — {metrics_ok}/4 métriques disponibles")
 
     except Exception as e:
         log.error(f"FusionSolar: ❌ EXCEPTION — {type(e).__name__}: {e}")
