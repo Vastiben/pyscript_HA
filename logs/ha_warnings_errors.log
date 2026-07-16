@@ -1,4 +1,4 @@
-Snapshot 2026-07-16T17:49:01.561128 — 50 entrée(s) system_log
+Snapshot 2026-07-16T17:50:01.693374 — 50 entrée(s) system_log
 
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
@@ -60,10 +60,6 @@ NameError: name 'asyncio.sleep' is not defined
 [2026-07-15T20:57:22.318913] WARNING  (homeassistant.components.http.ban) Login attempt or request with invalid authentication from supervisor (172.30.32.2). Requested URL: '/api/core/state'. (HomeAssistantSupervisor/2026.06.2 aiohttp/3.14.1 Python/3.14)  [src=components/http/ban.py:136, count=3]
 [2026-07-15T23:50:10.358012] WARNING  (homeassistant.components.sensor.recorder) Entity sensor.fusionsolar_daily_energy has state class total_increasing, but its state is not strictly increasing. Triggered by state 32.23 (previous state: 32.49) with last_updated set to 2026-07-15T21:48:02.035708+00:00. Please create a bug report at https://github.com/home-assistant/core/issues?q=is%3Aopen+is%3Aissue  [src=components/sensor/recorder.py:416, count=4]
 [2026-07-16T06:29:01.028163] ERROR    (custom_components.pyscript.file.fusionsolar.update_fusionsolar_sensors) FusionSolar: grid_power_kw est None — compteur réseau non détecté  [src=custom_components/pyscript/eval.py:2018, count=1888]
-[2026-07-16T07:20:00.194942] WARNING  (custom_components.pyscript.file.wireguard_watchdog.wireguard_ha_slave_check) ⚠ tentative 7/9 KO | handshake=OK | ping=PING 172.27.66.3 (172.27.66.3): 56 data bytes
-
---- 172.27.66.3 ping statistics ---
-1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=146]
 [2026-07-16T09:33:01.288294] WARNING  (homeassistant.components.media_player) Updating linkplay media_player took longer than the scheduled update interval 0:00:05  [src=helpers/entity_platform.py:1114, count=6]
 [2026-07-16T10:14:15.545079] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=3]
 [2026-07-16T10:14:15.556494] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Failed to connect to service HostServiceInfo(host='192.168.1.131', port=8009), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=3]
@@ -283,9 +279,13 @@ TypeError: pyscript functions can't be called from task.executor - must be a reg
   [src=custom_components/pyscript/trigger.py:1397, count=7]
 [2026-07-16T17:48:34.594108] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=859]
 [2026-07-16T17:48:34.596521] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=859]
-[2026-07-16T17:49:00.803486] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
-   e282ec2..fe0bbd3  main       -> origin/main
+[2026-07-16T17:50:00.330731] WARNING  (custom_components.pyscript.file.wireguard_watchdog.wireguard_ha_slave_check) ⚠ tentative 7/9 KO | handshake=OK | ping=PING 172.27.66.3 (172.27.66.3): 56 data bytes
+
+--- 172.27.66.3 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=147]
+[2026-07-16T17:50:01.124526] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   fe0bbd3..def1980  main       -> origin/main
 error: The following untracked working tree files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please move or remove them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=11]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=12]
