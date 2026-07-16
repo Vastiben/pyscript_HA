@@ -1,6 +1,7 @@
 from datetime import datetime
 import base64
 import requests
+from pathlib import Path
 
 # --- CONFIG À ADAPTER ---
 
@@ -12,11 +13,12 @@ GITHUB_PATH  = "logs/ha_warnings_errors.log"  # chemin du fichier dans le repo
 # À définir côté Home Assistant, par ex. via pyscript.config["github_token"].
 GITHUB_TOKEN = pyscript.config.get("github_token", "")
 
-# Fichier log de Home Assistant (core).
-LOG_FILE = "/config/home-assistant.log"  # emplacement standard sur HA OS
+# Fichier log de Home Assistant (core) et fichier local filtré.
+LOG_FILE        = "/config/home-assistant.log"              # emplacement standard sur HA OS
+LOCAL_LOG_FILE  = "/config/pyscript/logs/ha_warnings_errors.log"  # sera écrasé à chaque run
 
 
-def _filter_warning_error():
+def _filter_warning_error() -> str:
     """Retourne uniquement les lignes WARNING/ERROR du log HA."""
     try:
         with open(LOG_FILE, "r", encoding="utf-8", errors="ignore") as f:
@@ -28,6 +30,17 @@ def _filter_warning_error():
     filtered = [l for l in lines if "WARNING" in l or "ERROR" in l]
     header = f"Snapshot {datetime.now().isoformat()} — WARNING/ERROR uniquement\n\n"
     return header + "".join(filtered)
+
+
+def _write_local_log(text: str) -> None:
+    """Écrit (en écrasant) le log filtré dans LOCAL_LOG_FILE."""
+    try:
+        Path(LOCAL_LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
+        with open(LOCAL_LOG_FILE, "w", encoding="utf-8") as f:
+            f.write(text)
+        log.info(f"GitHub logs: local log mis à jour → {LOCAL_LOG_FILE}")
+    except Exception as e:
+        log.error(f"GitHub logs: impossible d'écrire {LOCAL_LOG_FILE}: {e}")
 
 
 def _get_remote_sha():
@@ -80,11 +93,14 @@ def _push_to_github(text: str):
 
 @time_trigger("period(now, 1min)")
 def push_ha_warning_error_logs():
-    """Tâche planifiée: toutes les minutes, push WARNING/ERROR vers GitHub."""
+    """Tâche planifiée: toutes les minutes, écrit localement + push WARNING/ERROR vers GitHub."""
     text = _filter_warning_error()
     if not text.strip():
         log.debug("GitHub logs: aucun WARNING/ERROR, pas de push.")
         return
 
-    # Exécution blocante dans un thread → pas de blocage du loop pyscript
+    # 1) écrire localement, en écrasant l'ancien fichier
+    _write_local_log(text)
+
+    # 2) pousser sur GitHub dans un thread séparé
     task.executor(_push_to_github, text)
