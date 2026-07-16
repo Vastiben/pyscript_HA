@@ -1,4 +1,4 @@
-Snapshot 2026-07-17T00:16:01.735369 — 50 entrée(s) system_log
+Snapshot 2026-07-17T00:17:01.500665 — 50 entrée(s) system_log
 
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
@@ -283,9 +283,9 @@ TypeError: pyscript functions can't be called from task.executor - must be a reg
 
 --- 172.27.66.3 ping statistics ---
 1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=158]
-[2026-07-17T00:16:00.900293] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
-   ff0f4fe..14d0b47  main       -> origin/main
+[2026-07-17T00:17:00.936527] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   14d0b47..1850077  main       -> origin/main
 error: Your local changes to the following files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please commit your changes or stash them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=397]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=398]
