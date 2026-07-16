@@ -190,4 +190,4 @@ def handle(**kwargs):
 # NOTIFY
 # =========================
 def notify(msg, chat=None):
-    service.call("notify.telegram", message=msg, target=chat)
+    service.call("telegram_bot.send_message", message=msg, target=chat)
