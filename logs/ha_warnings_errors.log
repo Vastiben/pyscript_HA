@@ -1,6 +1,5 @@
-Snapshot 2026-07-16T17:38:01.620036 — 50 entrée(s) system_log
+Snapshot 2026-07-16T17:39:01.594190 — 50 entrée(s) system_log
 
-[2026-07-14T20:30:55.410527] ERROR    (homeassistant.setup) The 'downloader' integration does not support YAML setup, please remove it from your configuration  [src=setup.py:372, count=1]
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
 [2026-07-14T20:31:08.123056] ERROR    (homeassistant.components.websocket_api.http.connection) [281472898127072] BG from 192.168.1.195 (Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0): Client unable to keep up with pending messages. Reached 4096 pending messages. The system's load is too high or an integration is misbehaving; Last message was: b'{"type":"event","event":{"a":{"scene.ha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalsalon_lecture":{"s":"unavailable","a":{"restored":true,"supported_features":0},"c":"01KXGYB9JTPZVGFG5YKCN1GE5M","lc":1784053868.1227202}}},"id":2}'  [src=components/websocket_api/http.py:216, count=1]
@@ -284,3 +283,9 @@ Traceback (most recent call last):
     )
 TypeError: pyscript functions can't be called from task.executor - must be a regular python function
   [src=custom_components/pyscript/trigger.py:1397, count=7]
+[2026-07-16T17:39:00.807651] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   b63a9ce..571258c  main       -> origin/main
+error: The following untracked working tree files would be overwritten by merge:
+	logs/ha_warnings_errors.log
+Please move or remove them before you merge.
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=1]
