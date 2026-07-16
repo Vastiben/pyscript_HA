@@ -105,6 +105,7 @@ def router(**kwargs):
             "/fscookie\n"
             "/fsstatus\n"
             "/fstest\n"
+            "/fshealth\n"
             "/fsreset",
             chat,
         )
