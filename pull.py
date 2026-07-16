@@ -12,6 +12,14 @@ def dismiss_telegram_error():
 @time_trigger("cron(*/1 * * * *)")
 def check_and_pull():
     log.info("▶ check_and_pull démarré")
+
+    # Mettre de côté les modifications locales (ex: logs/) pour ne pas bloquer le pull
+    subprocess.run(
+        ["git", "-C", "/config/pyscript", "stash"],
+        capture_output=True,
+        text=True
+    )
+
     result = subprocess.run(
         ["git", "-C", "/config/pyscript", "pull"],
         capture_output=True,
