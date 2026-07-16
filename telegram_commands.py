@@ -20,7 +20,7 @@ from datetime import datetime
 # =========================
 CONFIG = {
     "telegram_domain": "notify",
-    "telegram_service": "telegram",
+    "telegram_service": "telegram_bot",
     "allowed_chat_ids": [],  # sécurité (mettre ton chat_id)
     "debug": True,
 }
