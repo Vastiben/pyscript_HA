@@ -1,4 +1,4 @@
-Snapshot 2026-07-16T17:59:01.535195 — 50 entrée(s) system_log
+Snapshot 2026-07-16T18:00:01.911243 — 50 entrée(s) system_log
 
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
@@ -255,7 +255,6 @@ TypeError: Function.service_call() missing 1 required positional argument: 'name
 [2026-07-16T14:58:31.930348] WARNING  (custom_components.pyscript.eval) file.wireguard_watchdog.wireguard_ha_slave_check line 35 calls blocking time.sleep(); replaced with asyncio.sleep()  [src=custom_components/pyscript/eval.py:2012, count=65]
 [2026-07-16T15:09:05.094649] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=32]
 [2026-07-16T15:09:48.746226] ERROR    (custom_components.pyscript.file.fusionsolar.handle) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=40]
-[2026-07-16T17:00:01.067165] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=31]
 [2026-07-16T17:30:01.200419] ERROR    (custom_components.pyscript.file.github_logs.push_ha_warning_error_logs) GitHub logs: impossible de lire /config/home-assistant.log: name 'open' is not defined  [src=custom_components/pyscript/eval.py:2018, count=25]
 [2026-07-16T17:37:01.647058] ERROR    (custom_components.pyscript.file.github_logs.push_ha_warning_error_logs) Exception in <file.github_logs.push_ha_warning_error_logs> line 118:
         task.executor(_push_to_github, text)
@@ -283,9 +282,10 @@ TypeError: pyscript functions can't be called from task.executor - must be a reg
 1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=148]
 [2026-07-16T17:58:04.610350] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=862]
 [2026-07-16T17:58:04.612604] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=862]
-[2026-07-16T17:59:00.831182] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
-   4d7cde6..663bf23  main       -> origin/main
+[2026-07-16T18:00:01.164723] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   663bf23..4e8f578  main       -> origin/main
 error: The following untracked working tree files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please move or remove them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=21]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=22]
+[2026-07-16T18:00:01.388980] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=32]
