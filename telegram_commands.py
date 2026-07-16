@@ -67,12 +67,14 @@ def notify(msg, chat_id=None):
     if chat_id:
         data["target"] = chat_id
 
+    # Pyscript: service.call(domain, name, **data)
     service.call("telegram_bot", "send_message", **data)
 
 
 def parse_args(args):
     if isinstance(args, list):
-        return " ".join(args)
+        # Pas de generator expression (non supporté par Pyscript) : on force une list comprehension
+        return " ".join([str(x) for x in args])
     return str(args or "").strip()
 
 
