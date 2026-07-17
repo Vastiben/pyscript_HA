@@ -1,4 +1,4 @@
-Snapshot 2026-07-17T06:51:01.961486 — 50 entrée(s) system_log
+Snapshot 2026-07-17T06:52:01.866984 — 50 entrée(s) system_log
 
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
 [2026-07-14T20:31:08.123056] ERROR    (homeassistant.components.websocket_api.http.connection) [281472898127072] BG from 192.168.1.195 (Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0): Client unable to keep up with pending messages. Reached 4096 pending messages. The system's load is too high or an integration is misbehaving; Last message was: b'{"type":"event","event":{"a":{"scene.ha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalsalon_lecture":{"s":"unavailable","a":{"restored":true,"supported_features":0},"c":"01KXGYB9JTPZVGFG5YKCN1GE5M","lc":1784053868.1227202}}},"id":2}'  [src=components/websocket_api/http.py:216, count=1]
