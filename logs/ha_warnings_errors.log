@@ -1,6 +1,5 @@
-Snapshot 2026-07-17T18:56:04.069854 — 50 entrée(s) system_log
+Snapshot 2026-07-17T22:54:37.211005 — 50 entrée(s) system_log
 
-[2026-07-14T20:31:08.257397] ERROR    (homeassistant.core) Error running job: <Job listen homeassistant_start HassJobType.Callback <function _async_setup_entity_restore.<locals>._write_unavailable_states at 0xffffa3f5fd70>>  [src=core.py:1540, count=1]
 [2026-07-14T20:31:10.353281] WARNING  (homeassistant.components.homekit) The bridge Cabanon Live view has entity camera.terrasse_live_view. For best performance, and to prevent unexpected unavailability, create and pair a separate HomeKit instance in accessory mode for this entity  [src=components/homekit/__init__.py:745, count=2]
 [2026-07-14T20:35:00.384137] WARNING  (homeassistant.components.select) Updating linkplay select took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=1]
 [2026-07-14T20:35:04.349361] ERROR    (homeassistant.components.spotify.coordinator) Error requesting spotify data: Cannot connect to host api.spotify.com:443 ssl:default [Timeout while contacting DNS servers]  [src=helpers/update_coordinator.py:466, count=1]
@@ -66,7 +65,6 @@ Traceback (most recent call last):
 NotImplementedError: file.telegram_commands.telegram_command_router: not implemented ast ast_generatorexp
   [src=custom_components/pyscript/trigger.py:1397, count=1]
 [2026-07-16T10:30:47.393560] WARNING  (pychromecast.controllers) STOP command requested but no session is active.  [src=components/cast/media_player.py:572, count=4]
-[2026-07-16T10:30:47.397331] ERROR    (homeassistant.components.automation.simulation_presence_auto) Détection mouvement: Simulation présence: Error executing script. Error for call_service at pos 9: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=helpers/script.py:2098, count=9]
 [2026-07-16T10:30:47.401135] ERROR    (homeassistant.components.automation.simulation_presence_auto) Error while executing automation automation.simulation_presence_auto: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=components/automation/__init__.py:847, count=4]
 [2026-07-16T11:05:01.439395] ERROR    (custom_components.pyscript.file.fusionsolar.update_fusionsolar_every_5_min) FusionSolar update failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=34]
 [2026-07-16T11:13:53.035968] ERROR    (custom_components.pyscript.file.telegram_commands.telegram_router) Exception in <file.telegram_commands.telegram_router> line 75:
@@ -276,7 +274,6 @@ error: Your local changes to the following files would be overwritten by merge:
 Please commit your changes or stash them before you merge.
 Aborting  [src=custom_components/pyscript/eval.py:2018, count=784]
 [2026-07-17T14:47:08.455333] WARNING  (aiohue.util) Value {'mode': 'random_pixelated', 'mode_values': ['interpolated_palette', 'interpolated_palette_mirrored', 'random_pixelated', 'segmented_palette'], 'pixel_count': 20, 'points': [{'color': {'xy': {'x': 0.6188, 'y': 0.2731}}}, {'color': {'xy': {'x': 0.5177, 'y': 0.4388}}}, {'color': {'xy': {'x': 0.1556, 'y': 0.1391}}}, {'color': {'xy': {'x': 0.3019, 'y': 0.6009}}}, {'color': {'xy': {'x': 0.2009, 'y': 0.0707}}}], 'points_capable': 5} of type <class 'dict'> is invalid for gradient, expected value of type aiohue.v2.models.feature.GradientFeature | None  [src=runner.py:289, count=1]
-[2026-07-17T18:00:00.100475] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=49]
 [2026-07-17T18:52:00.613477] ERROR    (homeassistant.components.spotify.coordinator) Error fetching spotify data: Error communicating with Spotify API  [src=helpers/update_coordinator.py:497, count=9]
 [2026-07-17T18:52:05.148008] WARNING  (homeassistant.components.mqtt.client) Error returned from MQTT server: The connection was lost.  [src=components/mqtt/client.py:1271, count=2]
 [2026-07-17T18:52:12.034549] ERROR    (homeassistant.components.ring.coordinator) Error fetching devices data: Timeout communicating with Ring API  [src=helpers/update_coordinator.py:497, count=3]
@@ -288,5 +285,8 @@ Aborting  [src=custom_components/pyscript/eval.py:2018, count=784]
 
 --- 172.27.66.3 ping statistics ---
 1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=190]
-[2026-07-17T18:56:02.725412] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1335]
-[2026-07-17T18:56:02.728144] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1335]
+[2026-07-17T20:52:36.993217] WARNING  (homeassistant.components.script.allumer_festivia) Allumer festivia: Already running  [src=helpers/script.py:2098, count=1]
+[2026-07-17T20:52:37.006179] ERROR    (homeassistant.components.automation.simulation_presence_auto) Détection mouvement: Simulation présence: Error executing script. Error for call_service at pos 9: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=helpers/script.py:2098, count=10]
+[2026-07-17T22:00:00.232067] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=53]
+[2026-07-17T22:53:33.152640] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1410]
+[2026-07-17T22:53:33.155105] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1410]
