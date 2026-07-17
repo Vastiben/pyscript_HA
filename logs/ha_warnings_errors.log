@@ -1,4 +1,4 @@
-Snapshot 2026-07-17T05:47:01.651618 — 50 entrée(s) system_log
+Snapshot 2026-07-17T05:48:01.663842 — 50 entrée(s) system_log
 
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
 [2026-07-14T20:31:08.123056] ERROR    (homeassistant.components.websocket_api.http.connection) [281472898127072] BG from 192.168.1.195 (Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0): Client unable to keep up with pending messages. Reached 4096 pending messages. The system's load is too high or an integration is misbehaving; Last message was: b'{"type":"event","event":{"a":{"scene.ha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalha_principalsalon_lecture":{"s":"unavailable","a":{"restored":true,"supported_features":0},"c":"01KXGYB9JTPZVGFG5YKCN1GE5M","lc":1784053868.1227202}}},"id":2}'  [src=components/websocket_api/http.py:216, count=1]
@@ -282,11 +282,11 @@ TypeError: pyscript functions can't be called from task.executor - must be a reg
 1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=167]
 [2026-07-17T05:31:49.091385] ERROR    (firebase_messaging.fcmpushclient) Unexpected exception during read
   [src=/usr/local/lib/python3.14/site-packages/firebase_messaging/fcmpushclient.py:717, count=3]
-[2026-07-17T05:44:16.105400] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1085]
-[2026-07-17T05:44:16.108080] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1085]
-[2026-07-17T05:47:00.948046] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
-   1aec403..2be1bb8  main       -> origin/main
+[2026-07-17T05:47:26.111985] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1086]
+[2026-07-17T05:47:26.114308] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1086]
+[2026-07-17T05:48:00.985570] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   2be1bb8..990b302  main       -> origin/main
 error: Your local changes to the following files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please commit your changes or stash them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=728]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=729]
