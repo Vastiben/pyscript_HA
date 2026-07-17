@@ -1,6 +1,4 @@
 from datetime import datetime
-import base64
-import requests
 from pathlib import Path
 
 # --- CONFIG ---
@@ -19,12 +17,11 @@ def _notify(msg, chat_id=None):
     service.call("telegram_bot", "send_message", **data)
 
 
-def _collect_log_entries() -> str:
-    """Lit les entrées system_log et renvoie un texte formaté."""
+def _collect_log_entries():
     try:
         records = hass.data["system_log"].records
     except Exception as e:
-        log.error(f"GitHub logs: impossible de lire system_log: {e}")
+        log.error("GitHub logs: impossible de lire system_log: " + str(e))
         return ""
 
     lines = []
@@ -43,43 +40,38 @@ def _collect_log_entries() -> str:
 
         msg = messages[0] if messages else ""
         src = (
-            f"{source[0]}:{source[1]}"
+            source[0] + ":" + str(source[1])
             if isinstance(source, (list, tuple)) and len(source) >= 2
             else str(source)
         )
-
-        lines.append(
-            f"[{ts}] {level:8s} ({name}) {msg}  [src={src}, count={count}]"
-        )
+        lines.append("[" + ts + "] " + str(level).ljust(8) + " (" + name + ") " + msg + "  [src=" + src + ", count=" + str(count) + "]")
 
     if not lines:
         return ""
 
-    header = (
-        f"Snapshot {datetime.now().isoformat()} — "
-        f"{len(lines)} entrée(s) system_log\n\n"
-    )
+    header = "Snapshot " + datetime.now().isoformat() + " -- " + str(len(lines)) + " entree(s) system_log\n\n"
     return header + "\n".join(lines) + "\n"
 
 
 @pyscript_compile
-def _write_local_log_native(text: str) -> None:
+def _write_local_log_native(path, text):
     from pathlib import Path as _Path
-    _Path(LOCAL_LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
-    with open(LOCAL_LOG_FILE, "w", encoding="utf-8") as f:
+    _Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
         f.write(text)
 
 
 @pyscript_compile
-def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: str) -> str:
+def _push_to_github_native(text, owner, repo, path, token):
     import base64 as _b64
     import requests as _req
+    from datetime import datetime as _dt
 
     if not token:
         raise RuntimeError("GITHUB_TOKEN manquant")
 
-    base_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    headers  = {"Authorization": f"Bearer {token}"}
+    base_url = "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path
+    headers  = {"Authorization": "Bearer " + token}
 
     r = _req.get(base_url, headers=headers)
     sha = None
@@ -90,7 +82,7 @@ def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: s
 
     content_b64 = _b64.b64encode(text.encode("utf-8")).decode("ascii")
     payload = {
-        "message": f"HA logs system_log {datetime.now().isoformat()}",
+        "message": "HA logs system_log " + _dt.now().isoformat(),
         "content": content_b64,
     }
     if sha:
@@ -102,21 +94,18 @@ def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: s
 
 
 def push_ha_warning_error_logs(chat_id=None):
-    """Lit system_log, écrit localement, pousse vers GitHub (appel manuel)."""
     text = _collect_log_entries()
 
     if not text.strip():
-        log.debug("GitHub logs: aucune entrée system_log.")
-        _notify("⚠️ /ghpush : aucune entrée à envoyer.", chat_id)
+        log.debug("GitHub logs: aucune entree system_log.")
+        _notify("Aucune entree a envoyer.", chat_id)
         return
 
-    # 1) Ecriture locale
     try:
-        task.executor(_write_local_log_native, text)
+        task.executor(_write_local_log_native, LOCAL_LOG_FILE, text)
     except Exception as e:
-        log.error(f"GitHub logs: erreur écriture fichier local: {e}")
+        log.error("GitHub logs: erreur ecriture locale: " + str(e))
 
-    # 2) Push GitHub
     try:
         commit_url = task.executor(
             _push_to_github_native,
@@ -127,19 +116,16 @@ def push_ha_warning_error_logs(chat_id=None):
             GITHUB_TOKEN,
         )
         if commit_url:
-            log.info(f"GitHub logs: push OK → {commit_url}")
-            _notify(f"✅ Logs poussés sur GitHub !
-🔗 {commit_url}", chat_id)
+            log.info("GitHub logs: push OK -> " + commit_url)
+            _notify("Logs pousses sur GitHub !\n" + commit_url, chat_id)
         else:
-            _notify("✅ Logs poussés sur GitHub.", chat_id)
+            _notify("Logs pousses sur GitHub.", chat_id)
     except Exception as e:
-        log.error(f"GitHub logs: push FAIL: {e}")
-        _notify(f"❌ /ghpush échoué :
-{e}", chat_id)
+        log.error("GitHub logs: push FAIL: " + str(e))
+        _notify("Erreur ghpush :\n" + str(e), chat_id)
 
 
 @event_trigger("pyscript_gh")
 def handle_pyscript_gh(action=None, chat_id=None, **kwargs):
-    """Réagit à /ghpush pour pousser les logs vers GitHub."""
     if action == "push":
         push_ha_warning_error_logs(chat_id=chat_id)
