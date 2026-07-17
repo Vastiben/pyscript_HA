@@ -31,13 +31,13 @@ dbg("✅ telegram_commands.py chargé")
 # COMMANDES
 # =========================
 COMMANDS = {
-    "/tghelp": {"type": "help"},
+    "/help": {"type": "help"},
 
     "/fshealth": {
         "type": "event",
         "action": "health",
     },
-    
+
     "/fscookie": {
         "type": "write",
         "path": "/config/fusionsolar/cookie.txt",
@@ -50,16 +50,16 @@ COMMANDS = {
     },
 
     "/fsstatus": {"type": "event", "action": "status"},
-    "/fstest": {"type": "event", "action": "test"},
-    "/fsreset": {"type": "event", "action": "reset"},
+    "/fstest":   {"type": "event", "action": "test"},
+    "/fsreset":  {"type": "event", "action": "reset"},
 
     # === GitHub / Pyscript ===
-    "/gh-pull": {
+    "/ghpull": {
         "type": "event",
         "event": "pyscript_gh",
         "action": "pull",
     },
-    "/gh-push": {
+    "/ghpush": {
         "type": "event",
         "event": "pyscript_gh",
         "action": "push",
@@ -79,14 +79,11 @@ def notify(msg, chat_id=None):
     data = {"message": msg}
     if chat_id:
         data["target"] = chat_id
-
-    # Pyscript: service.call(domain, name, **data)
     service.call("telegram_bot", "send_message", **data)
 
 
 def parse_args(args):
     if isinstance(args, list):
-        # Pas de generator expression (non supporté par Pyscript) : on force une list comprehension
         return " ".join([str(x) for x in args])
     return str(args or "").strip()
 
@@ -99,7 +96,7 @@ def router(**kwargs):
 
     dbg(f"RAW: {kwargs}")
 
-    cmd = (kwargs.get("command") or "").lower().replace("_", "")
+    cmd = (kwargs.get("command") or "").lower().replace("_", "").replace("-", "")
     text = parse_args(kwargs.get("args"))
     chat = kwargs.get("chat_id")
 
@@ -108,7 +105,7 @@ def router(**kwargs):
     spec = COMMANDS.get(cmd)
 
     if not spec:
-        notify("❌ commande inconnue", chat)
+        notify("❌ Commande inconnue. Tape /help pour la liste.", chat)
         return
 
     # =====================
@@ -116,14 +113,17 @@ def router(**kwargs):
     # =====================
     if spec["type"] == "help":
         notify(
-            "🤖 Commandes:\n"
-            "/fscookie\n"
-            "/fsstatus\n"
-            "/fstest\n"
-            "/fshealth\n"
-            "/fsreset\n"
-            "/gh-pull\n"
-            "/gh-push",
+            "🤖 Commandes disponibles :\n\n"
+            "📊 FusionSolar\n"
+            "/fscookie — mettre à jour le cookie\n"
+            "/fsroarand — mettre à jour le roarand\n"
+            "/fsstatus — statut\n"
+            "/fshealth — diagnostic complet\n"
+            "/fstest — test\n"
+            "/fsreset — reset\n\n"
+            "🔧 GitHub / Pyscript\n"
+            "/ghpull — récupérer le dernier code GitHub\n"
+            "/ghpush — pousser les logs HA vers GitHub",
             chat,
         )
 
@@ -133,21 +133,20 @@ def router(**kwargs):
     elif spec["type"] == "write":
 
         if len(text) < spec.get("min", 0):
-            notify("❌ contenu trop court", chat)
+            notify("❌ Contenu trop court.", chat)
             return
 
         path = spec["path"]
 
         if path not in ALLOWED_PATHS:
-            notify("❌ accès interdit", chat)
+            notify("❌ Accès interdit.", chat)
             return
 
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         Path(path).write_text(text.strip())
 
         dbg(f"Fichier écrit: {path}")
-
-        notify("✅ enregistré", chat)
+        notify("✅ Enregistré.", chat)
 
     # =====================
     # EVENT
