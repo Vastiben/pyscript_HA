@@ -99,9 +99,8 @@ def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: s
     return r.json().get("commit", {}).get("html_url", "")
 
 
-@time_trigger("period(now, 1min)")
 def push_ha_warning_error_logs():
-    """Toutes les minutes : lit system_log, écrit localement, pousse vers GitHub."""
+    """Lit system_log, écrit localement, pousse vers GitHub (appel manuel)."""
     text = _collect_log_entries()
 
     if not text.strip():
@@ -128,3 +127,10 @@ def push_ha_warning_error_logs():
             log.info(f"GitHub logs: push OK → {commit_url}")
     except Exception as e:
         log.error(f"GitHub logs: push FAIL: {e}")
+
+
+@event_trigger("pyscript_gh")
+def handle_pyscript_gh(action=None, **kwargs):
+    """Réagit à /gh-push pour pousser les logs vers GitHub."""
+    if action == "push":
+        push_ha_warning_error_logs()
