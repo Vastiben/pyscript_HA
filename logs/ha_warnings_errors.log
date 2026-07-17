@@ -1,4 +1,4 @@
-Snapshot 2026-07-17T02:49:01.604474 — 50 entrée(s) system_log
+Snapshot 2026-07-17T02:50:01.806877 — 50 entrée(s) system_log
 
 [2026-07-14T20:30:56.241275] ERROR    (homeassistant.components.binary_sensor) rpi_power: Error on device update!  [src=helpers/entity_platform.py:811, count=1]
 [2026-07-14T20:31:06.900588] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
@@ -61,8 +61,6 @@ NameError: name 'asyncio.sleep' is not defined
 [2026-07-15T23:50:10.358012] WARNING  (homeassistant.components.sensor.recorder) Entity sensor.fusionsolar_daily_energy has state class total_increasing, but its state is not strictly increasing. Triggered by state 32.23 (previous state: 32.49) with last_updated set to 2026-07-15T21:48:02.035708+00:00. Please create a bug report at https://github.com/home-assistant/core/issues?q=is%3Aopen+is%3Aissue  [src=components/sensor/recorder.py:416, count=4]
 [2026-07-16T06:29:01.028163] ERROR    (custom_components.pyscript.file.fusionsolar.update_fusionsolar_sensors) FusionSolar: grid_power_kw est None — compteur réseau non détecté  [src=custom_components/pyscript/eval.py:2018, count=1888]
 [2026-07-16T09:33:01.288294] WARNING  (homeassistant.components.media_player) Updating linkplay media_player took longer than the scheduled update interval 0:00:05  [src=helpers/entity_platform.py:1114, count=6]
-[2026-07-16T10:14:15.545079] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=3]
-[2026-07-16T10:14:15.556494] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Failed to connect to service HostServiceInfo(host='192.168.1.131', port=8009), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=3]
 [2026-07-16T10:29:03.211951] ERROR    (custom_components.pyscript.file.telegram_commands.telegram_command_router) Exception in <file.telegram_commands.telegram_command_router> line 139:
             return " ".join(str(x) for x in args).strip()
                            ^
@@ -283,9 +281,11 @@ TypeError: pyscript functions can't be called from task.executor - must be a reg
 1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=161]
 [2026-07-17T02:46:55.756913] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1029]
 [2026-07-17T02:46:55.759190] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1029]
-[2026-07-17T02:49:00.972561] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
-   a563330..8337eec  main       -> origin/main
+[2026-07-17T02:49:44.404472] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=4]
+[2026-07-17T02:49:44.428556] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Failed to connect to service HostServiceInfo(host='192.168.1.131', port=8009), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=4]
+[2026-07-17T02:50:01.204501] ERROR    (custom_components.pyscript.file.pull.check_and_pull) ❌ check_and_pull — git pull échoué : From https://github.com/Vastiben/pyscript_HA
+   8337eec..94fd730  main       -> origin/main
 error: Your local changes to the following files would be overwritten by merge:
 	logs/ha_warnings_errors.log
 Please commit your changes or stash them before you merge.
-Aborting  [src=custom_components/pyscript/eval.py:2018, count=550]
+Aborting  [src=custom_components/pyscript/eval.py:2018, count=551]
