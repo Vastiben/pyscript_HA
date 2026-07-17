@@ -24,6 +24,7 @@ def dbg(msg):
     if CONFIG["debug"]:
         log.info(f"[TG] {msg}")
 
+
 dbg("✅ telegram_commands.py chargé")
 
 # =========================
@@ -51,6 +52,18 @@ COMMANDS = {
     "/fsstatus": {"type": "event", "action": "status"},
     "/fstest": {"type": "event", "action": "test"},
     "/fsreset": {"type": "event", "action": "reset"},
+
+    # === GitHub / Pyscript ===
+    "/gh-pull": {
+        "type": "event",
+        "event": "pyscript_gh",
+        "action": "pull",
+    },
+    "/gh-push": {
+        "type": "event",
+        "event": "pyscript_gh",
+        "action": "push",
+    },
 }
 
 ALLOWED_PATHS = {
@@ -108,7 +121,9 @@ def router(**kwargs):
             "/fsstatus\n"
             "/fstest\n"
             "/fshealth\n"
-            "/fsreset",
+            "/fsreset\n"
+            "/gh-pull\n"
+            "/gh-push",
             chat,
         )
 
@@ -139,10 +154,11 @@ def router(**kwargs):
     # =====================
     elif spec["type"] == "event":
 
-        dbg(f"Fire event → {spec['action']}")
+        event_name = spec.get("event", "fusionsolar_command")
+        dbg(f"Fire event → {event_name}:{spec['action']}")
 
         event.fire(
-            "fusionsolar_command",
+            event_name,
             action=spec["action"],
             chat_id=chat,
             text=text,
