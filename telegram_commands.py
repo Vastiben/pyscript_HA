@@ -27,11 +27,28 @@ def dbg(msg):
 
 dbg("✅ telegram_commands.py chargé")
 
+HELP_TEXT = (
+    "🤖 Commandes disponibles :\n\n"
+    "📊 FusionSolar\n"
+    "/fscookie — mettre à jour le cookie\n"
+    "/fsroarand — mettre à jour le roarand\n"
+    "/fsstatus — statut\n"
+    "/fshealth — diagnostic complet\n"
+    "/fstest — test\n"
+    "/fsreset — reset\n\n"
+    "🔧 GitHub / Pyscript\n"
+    "/ghpull — récupérer le dernier code GitHub\n"
+    "/ghpush — pousser les logs HA vers GitHub\n\n"
+    "ℹ️ Aide\n"
+    "/help ou /h — afficher ce message"
+)
+
 # =========================
 # COMMANDES
 # =========================
 COMMANDS = {
     "/help": {"type": "help"},
+    "/h":    {"type": "help"},
 
     "/fshealth": {
         "type": "event",
@@ -112,20 +129,7 @@ def router(**kwargs):
     # HELP
     # =====================
     if spec["type"] == "help":
-        notify(
-            "🤖 Commandes disponibles :\n\n"
-            "📊 FusionSolar\n"
-            "/fscookie — mettre à jour le cookie\n"
-            "/fsroarand — mettre à jour le roarand\n"
-            "/fsstatus — statut\n"
-            "/fshealth — diagnostic complet\n"
-            "/fstest — test\n"
-            "/fsreset — reset\n\n"
-            "🔧 GitHub / Pyscript\n"
-            "/ghpull — récupérer le dernier code GitHub\n"
-            "/ghpush — pousser les logs HA vers GitHub",
-            chat,
-        )
+        notify(HELP_TEXT, chat)
 
     # =====================
     # WRITE FILE
