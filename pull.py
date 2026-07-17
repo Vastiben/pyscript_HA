@@ -9,9 +9,9 @@ def dismiss_telegram_error():
     )
     log.info("✅ dismiss_telegram_error terminé")
 
-@time_trigger("cron(*/1 * * * *)")
+
 def check_and_pull():
-    log.info("▶ check_and_pull démarré")
+    log.info("▶ check_and_pull (manuel) démarré")
 
     # Mettre de côté les modifications locales (ex: logs/) pour ne pas bloquer le pull
     subprocess.run(
@@ -47,3 +47,10 @@ def check_and_pull():
         service.call("persistent_notification", "dismiss",
             notification_id="gitpull_error"
         )
+
+
+@event_trigger("pyscript_gh")
+def handle_pyscript_gh(action=None, **kwargs):
+    """Réagit aux commandes Telegram /gh-pull (et éventuellement d'autres)."""
+    if action == "pull":
+        check_and_pull()
