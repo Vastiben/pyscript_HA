@@ -12,6 +12,13 @@ GITHUB_TOKEN   = pyscript.config.get("github_token", "")
 LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
+def _notify(msg, chat_id=None):
+    data = {"message": msg}
+    if chat_id:
+        data["target"] = chat_id
+    service.call("telegram_bot", "send_message", **data)
+
+
 def _collect_log_entries() -> str:
     """Lit les entrées system_log et renvoie un texte formaté."""
     try:
@@ -66,7 +73,7 @@ def _write_local_log_native(text: str) -> None:
 @pyscript_compile
 def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: str) -> str:
     """
-    Fonction native : fait le PUT sur l'API GitHub et renvoie l'URL du commit.
+    Fonction native : fait le PUT sur l’API GitHub et renvoie l’URL du commit.
     AUCUN appel à log / hass / APIs Pyscript ici, uniquement du Python standard.
     """
     import base64 as _b64
@@ -77,7 +84,6 @@ def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: s
 
     base_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
 
-    # GET pour récupérer la SHA éventuelle (fichier déjà existant ou pas)
     headers = {"Authorization": f"Bearer {token}"}
     r = _req.get(base_url, headers=headers)
     sha = None
@@ -99,12 +105,13 @@ def _push_to_github_native(text: str, owner: str, repo: str, path: str, token: s
     return r.json().get("commit", {}).get("html_url", "")
 
 
-def push_ha_warning_error_logs():
+def push_ha_warning_error_logs(chat_id=None):
     """Lit system_log, écrit localement, pousse vers GitHub (appel manuel)."""
     text = _collect_log_entries()
 
     if not text.strip():
         log.debug("GitHub logs: aucune entrée system_log.")
+        _notify("⚠️ GitHub push : aucune entrée à envoyer.", chat_id)
         return
 
     # 1) Ecriture locale (I/O natif)
@@ -125,12 +132,16 @@ def push_ha_warning_error_logs():
         )
         if commit_url:
             log.info(f"GitHub logs: push OK → {commit_url}")
+            _notify(f"✅ Logs poussés sur GitHub \n🔗 {commit_url}", chat_id)
+        else:
+            _notify("✅ Logs poussés sur GitHub.", chat_id)
     except Exception as e:
         log.error(f"GitHub logs: push FAIL: {e}")
+        _notify(f"❌ GitHub push échoué :\n{e}", chat_id)
 
 
 @event_trigger("pyscript_gh")
-def handle_pyscript_gh(action=None, **kwargs):
+def handle_pyscript_gh(action=None, chat_id=None, **kwargs):
     """Réagit à /gh-push pour pousser les logs vers GitHub."""
     if action == "push":
-        push_ha_warning_error_logs()
+        push_ha_warning_error_logs(chat_id=chat_id)
