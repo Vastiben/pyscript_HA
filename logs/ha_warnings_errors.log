@@ -1,6 +1,5 @@
-Snapshot 2026-07-17T22:54:37.211005 — 50 entrée(s) system_log
+Snapshot 2026-07-17T23:01:56.098281 -- 50 entree(s) system_log
 
-[2026-07-14T20:31:10.353281] WARNING  (homeassistant.components.homekit) The bridge Cabanon Live view has entity camera.terrasse_live_view. For best performance, and to prevent unexpected unavailability, create and pair a separate HomeKit instance in accessory mode for this entity  [src=components/homekit/__init__.py:745, count=2]
 [2026-07-14T20:35:00.384137] WARNING  (homeassistant.components.select) Updating linkplay select took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=1]
 [2026-07-14T20:35:04.349361] ERROR    (homeassistant.components.spotify.coordinator) Error requesting spotify data: Cannot connect to host api.spotify.com:443 ssl:default [Timeout while contacting DNS servers]  [src=helpers/update_coordinator.py:466, count=1]
 [2026-07-14T20:35:04.364076] ERROR    (firebase_messaging.fcmpushclient) Unexpected exception during read
@@ -233,12 +232,6 @@ Traceback (most recent call last):
                  ~~~~^^^^^^^^^^^^^^^^^
 TypeError: Function.service_call() missing 1 required positional argument: 'name'
   [src=custom_components/pyscript/trigger.py:1397, count=2]
-[2026-07-16T14:58:20.567285] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXNFGQJBQJNAGD9WT88SNEGR): message=🔍 FusionSolar Health
-
-❌ Cookie absent
-ℹ️ Roarand absent
-❌ API: pyscript functions can't be called from task.executor - must be a regular python function
-❌ sensor: name 'sensor.fs_pv' is not defined, target=[7332342681]>  [src=core.py:2837, count=4]
 [2026-07-16T14:58:31.930348] WARNING  (custom_components.pyscript.eval) file.wireguard_watchdog.wireguard_ha_slave_check line 35 calls blocking time.sleep(); replaced with asyncio.sleep()  [src=custom_components/pyscript/eval.py:2012, count=65]
 [2026-07-16T15:09:05.094649] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=32]
 [2026-07-16T15:09:48.746226] ERROR    (custom_components.pyscript.file.fusionsolar.handle) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=40]
@@ -288,5 +281,27 @@ Aborting  [src=custom_components/pyscript/eval.py:2018, count=784]
 [2026-07-17T20:52:36.993217] WARNING  (homeassistant.components.script.allumer_festivia) Allumer festivia: Already running  [src=helpers/script.py:2098, count=1]
 [2026-07-17T20:52:37.006179] ERROR    (homeassistant.components.automation.simulation_presence_auto) Détection mouvement: Simulation présence: Error executing script. Error for call_service at pos 9: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=helpers/script.py:2098, count=10]
 [2026-07-17T22:00:00.232067] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=53]
-[2026-07-17T22:53:33.152640] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1410]
-[2026-07-17T22:53:33.155105] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1410]
+[2026-07-17T22:59:01.990891] ERROR    (custom_components.pyscript.file.github_logs) Exception in </config/pyscript/github_logs.py> line 131:
+                _notify(f"✅ Logs poussés sur GitHub !
+                        ^
+SyntaxError: unterminated f-string literal (detected at line 131) (github_logs.py, line 131)
+Traceback (most recent call last):
+  File "/config/custom_components/pyscript/eval.py", line 2187, in parse
+    self.ast = ast.parse(self.code_str, filename=self.filename, mode=mode)
+               ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.14/ast.py", line 46, in parse
+    return compile(source, filename, mode, flags,
+                   _feature_version=feature_version, optimize=optimize)
+  File "/config/pyscript/github_logs.py", line 131
+    _notify(f"✅ Logs poussés sur GitHub !
+            ^
+SyntaxError: unterminated f-string literal (detected at line 131)
+  [src=custom_components/pyscript/global_ctx.py:335, count=1]
+[2026-07-17T22:59:53.205116] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1412]
+[2026-07-17T22:59:53.207421] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1412]
+[2026-07-17T23:01:42.845349] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXNFN78ZVFDEDZTBX74ACXJX): message=🔍 FusionSolar Health
+
+✅ Cookie présent
+✅ Roarand présent
+❌ API: pyscript functions can't be called from task.executor - must be a regular python function
+❌ sensor: name 'sensor.fs_pv' is not defined, target=[7332342681]>  [src=core.py:2837, count=7]
