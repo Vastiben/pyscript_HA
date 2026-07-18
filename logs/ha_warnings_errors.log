@@ -1,4 +1,4 @@
-Snapshot 2026-07-18T07:41:26.267832 -- 50 entree(s) system_log
+Snapshot 2026-07-18T07:41:32.494198 -- 50 entree(s) system_log
 
 [2026-07-14T20:35:00.384137] WARNING  (homeassistant.components.select) Updating linkplay select took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=1]
 [2026-07-14T20:35:04.349361] ERROR    (homeassistant.components.spotify.coordinator) Error requesting spotify data: Cannot connect to host api.spotify.com:443 ssl:default [Timeout while contacting DNS servers]  [src=helpers/update_coordinator.py:466, count=1]
@@ -299,9 +299,9 @@ SyntaxError: unterminated f-string literal (detected at line 131)
 [2026-07-18T07:00:00.239006] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=54]
 [2026-07-18T07:39:14.147364] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1576]
 [2026-07-18T07:39:14.149791] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1576]
-[2026-07-18T07:41:22.566127] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXRY07AGANGT03EZ290YF55E): message=🔄 Nouveau code récupéré depuis GitHub :
-Updating 330545f..7b88266
+[2026-07-18T07:41:28.055529] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXRY54G2G4VFEQGME33DWCFS): message=🔄 Nouveau code récupéré depuis GitHub :
+Updating 7b88266..7bdb1d3
 Fast-forward
- fusionsolar.py | 144 +++++++++++++++++++++++++--------------------------------
- github_logs.py |  24 +++++-----
- 2 files changed, 73 insertions(+), 95 deletions(-), target=[7332342681]>  [src=core.py:2837, count=10]
+ github_logs.py | 58 ++++++++++++++++++++++------------------------------------
+ pull.py        | 47 ++++++++++++++++++++---------------------------
+ 2 files changed, 42 insertions(+), 63 deletions(-), target=[7332342681]>  [src=core.py:2837, count=11]
