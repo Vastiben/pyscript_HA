@@ -1,4 +1,4 @@
-Snapshot 2026-07-18T07:22:19.663773 -- 50 entree(s) system_log
+Snapshot 2026-07-18T07:41:21.043306 -- 50 entree(s) system_log
 
 [2026-07-14T20:35:00.384137] WARNING  (homeassistant.components.select) Updating linkplay select took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=1]
 [2026-07-14T20:35:04.349361] ERROR    (homeassistant.components.spotify.coordinator) Error requesting spotify data: Cannot connect to host api.spotify.com:443 ssl:default [Timeout while contacting DNS servers]  [src=helpers/update_coordinator.py:466, count=1]
@@ -294,14 +294,10 @@ Traceback (most recent call last):
             ^
 SyntaxError: unterminated f-string literal (detected at line 131)
   [src=custom_components/pyscript/global_ctx.py:335, count=1]
-[2026-07-17T23:01:57.612749] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXNG380GAEN5VBMHTJV1Y8T4): message=🔍 FusionSolar Health
-
-✅ Cookie présent
-✅ Roarand présent
-❌ API: pyscript functions can't be called from task.executor - must be a regular python function
-❌ sensor: name 'sensor.fs_pv' is not defined, target=[7332342681]>  [src=core.py:2837, count=8]
 [2026-07-18T04:46:18.784044] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=5]
 [2026-07-18T04:46:18.795497] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Failed to connect to service HostServiceInfo(host='192.168.1.131', port=8009), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=5]
 [2026-07-18T07:00:00.239006] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=54]
-[2026-07-18T07:20:14.113104] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1570]
-[2026-07-18T07:20:14.115449] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1570]
+[2026-07-18T07:22:21.069031] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXRXR5FT0FS1EQVW8D28WZ6P): message=✅ Logs poussés sur GitHub 
+🔗 https://github.com/Vastiben/pyscript_HA/commit/330545f7809a4f561fb5084621fc0b41b3a71cf9, target=[7332342681]>  [src=core.py:2837, count=9]
+[2026-07-18T07:39:14.147364] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=1576]
+[2026-07-18T07:39:14.149791] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=1576]
