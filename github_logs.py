@@ -12,7 +12,15 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    data = {"message": msg}
+    """Envoie un message Telegram en mode texte pur (HTML échappé).
+
+    On échappe le texte pour éviter les erreurs "Can't parse entities"
+    quand le message contient des underscores, parenthèses, URLs, etc.
+    """
+    import html as _html
+
+    safe = _html.escape(str(msg))
+    data = {"message": safe, "parse_mode": "HTML"}
     if chat_id:
         data["target"] = chat_id
     service.call("telegram_bot", "send_message", **data)
