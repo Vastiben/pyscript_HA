@@ -18,7 +18,9 @@ def _notify(msg, chat_id=None):
     service.call("telegram_bot", "send_message", **data)
 
 
+@pyscript_compile
 def _collect_log_entries():
+    """Collecte les entrees system_log et retourne un texte formate."""
     try:
         records = hass.data["system_log"].records
     except Exception as e:
@@ -70,6 +72,7 @@ def _collect_log_entries():
 
 @pyscript_compile
 def _write_local_log_native(path, text):
+    """Ecrit le contenu texte dans un fichier local."""
     from pathlib import Path as _Path
     _Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -78,6 +81,7 @@ def _write_local_log_native(path, text):
 
 @pyscript_compile
 def _push_to_github_native(text, owner, repo, path, token):
+    """Pousse le contenu texte vers GitHub via l'API REST."""
     import base64 as _b64
     import requests as _req
     from datetime import datetime as _dt
@@ -113,7 +117,13 @@ def _push_to_github_native(text, owner, repo, path, token):
     return r.json().get("commit", {}).get("html_url", "")
 
 
-def push_ha_warning_error_logs(chat_id=None):
+@event_trigger("pyscript_ghpush")
+def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
+    """Gere l'event pyscript_ghpush declenche par /ghpush."""
+    if action != "push":
+        return
+
+    # Collecte les logs
     text = _collect_log_entries()
 
     if not text.strip():
@@ -121,14 +131,15 @@ def push_ha_warning_error_logs(chat_id=None):
         _notify("Aucune entree a envoyer.", chat_id)
         return
 
+    # Ecriture locale
     try:
-        task.executor(_write_local_log_native, LOCAL_LOG_FILE, text)
+        _write_local_log_native(LOCAL_LOG_FILE, text)
     except Exception as e:
         log.error("GitHub logs: erreur ecriture locale: " + str(e))
 
+    # Push GitHub
     try:
-        commit_url = task.executor(
-            _push_to_github_native,
+        commit_url = _push_to_github_native(
             text,
             GITHUB_OWNER,
             GITHUB_REPO,
@@ -146,10 +157,3 @@ def push_ha_warning_error_logs(chat_id=None):
     except Exception as e:
         log.error("GitHub logs: push FAIL: " + str(e))
         _notify("Erreur ghpush :\n" + str(e), chat_id)
-
-
-@event_trigger("pyscript_ghpush")
-def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
-    """Gère l'event pyscript_ghpush déclenché par /ghpush."""
-    if action == "push":
-        push_ha_warning_error_logs(chat_id=chat_id)
