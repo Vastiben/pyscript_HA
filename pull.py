@@ -3,13 +3,14 @@ from datetime import datetime
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram en mode texte pur (HTML échappé)."""
-    import html as _html
+    """Envoie un message Telegram en mode texte pur.
 
-    safe = _html.escape(str(msg))
-    data = {"message": safe, "parse_mode": "HTML"}
+    Calqué sur watchdog_summary: utilise target=[chat_id] et
+    laisse le parse_mode par défaut de l'intégration Telegram.
+    """
+    data = {"message": str(msg)}
     if chat_id:
-        data["chat_id"] = chat_id
+        data["target"] = [chat_id]
     service.call("telegram_bot", "send_message", **data)
 
 
