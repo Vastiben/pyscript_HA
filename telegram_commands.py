@@ -17,6 +17,7 @@ CONFIG = {
     "debug": True,
 }
 
+
 # =========================
 # DEBUG
 # =========================
@@ -42,6 +43,7 @@ HELP_TEXT = (
     "ℹ️ Aide\n"
     "/help ou /h — afficher ce message"
 )
+
 
 # =========================
 # COMMANDES
@@ -73,12 +75,12 @@ COMMANDS = {
     # === GitHub / Pyscript ===
     "/ghpull": {
         "type": "event",
-        "event": "pyscript_gh",
+        "event": "pyscript_ghpull",
         "action": "pull",
     },
     "/ghpush": {
         "type": "event",
-        "event": "pyscript_gh",
+        "event": "pyscript_ghpush",
         "action": "push",
     },
 }
@@ -87,6 +89,7 @@ ALLOWED_PATHS = {
     "/config/fusionsolar/cookie.txt",
     "/config/fusionsolar/roarand.txt",
 }
+
 
 # =========================
 # HELPERS
@@ -113,7 +116,12 @@ def router(**kwargs):
 
     dbg(f"RAW: {kwargs}")
 
-    cmd = (kwargs.get("command") or "").lower().replace("_", "").replace("-", "")
+    cmd = (
+        (kwargs.get("command") or "")
+        .lower()
+        .replace("_", "")
+        .replace("-", "")
+    )
     text = parse_args(kwargs.get("args"))
     chat = kwargs.get("chat_id")
 

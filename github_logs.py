@@ -1,12 +1,13 @@
 from datetime import datetime
 from pathlib import Path
 
+
 # --- CONFIG ---
 
-GITHUB_OWNER   = "Vastiben"
-GITHUB_REPO    = "pyscript_HA"
-GITHUB_PATH    = "logs/ha_warnings_errors.log"
-GITHUB_TOKEN   = pyscript.config.get("github_token", "")
+GITHUB_OWNER = "Vastiben"
+GITHUB_REPO = "pyscript_HA"
+GITHUB_PATH = "logs/ha_warnings_errors.log"
+GITHUB_TOKEN = pyscript.config.get("github_token", "")
 LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
@@ -21,17 +22,19 @@ def _collect_log_entries():
     try:
         records = hass.data["system_log"].records
     except Exception as e:
-        log.error("GitHub logs: impossible de lire system_log: " + str(e))
+        log.error(
+            "GitHub logs: impossible de lire system_log: " + str(e)
+        )
         return ""
 
     lines = []
     for key, entry in records.items():
-        level     = getattr(entry, "level", "?")
-        name      = getattr(entry, "name", "")
-        messages  = getattr(entry, "message", [])
+        level = getattr(entry, "level", "?")
+        name = getattr(entry, "name", "")
+        messages = getattr(entry, "message", [])
         timestamp = getattr(entry, "timestamp", 0)
-        source    = getattr(entry, "source", ("", ""))
-        count     = getattr(entry, "count", 1)
+        source = getattr(entry, "source", ("", ""))
+        count = getattr(entry, "count", 1)
 
         try:
             ts = datetime.fromtimestamp(float(timestamp)).isoformat()
@@ -44,12 +47,24 @@ def _collect_log_entries():
             if isinstance(source, (list, tuple)) and len(source) >= 2
             else str(source)
         )
-        lines.append("[" + ts + "] " + str(level).ljust(8) + " (" + name + ") " + msg + "  [src=" + src + ", count=" + str(count) + "]")
+        lines.append(
+            "[" + ts + "] "
+            + str(level).ljust(8)
+            + " (" + name + ") "
+            + msg
+            + "  [src=" + src + ", count=" + str(count) + "]"
+        )
 
     if not lines:
         return ""
 
-    header = "Snapshot " + datetime.now().isoformat() + " -- " + str(len(lines)) + " entree(s) system_log\n\n"
+    header = (
+        "Snapshot "
+        + datetime.now().isoformat()
+        + " -- "
+        + str(len(lines))
+        + " entree(s) system_log\n\n"
+    )
     return header + "\n".join(lines) + "\n"
 
 
@@ -70,8 +85,11 @@ def _push_to_github_native(text, owner, repo, path, token):
     if not token:
         raise RuntimeError("GITHUB_TOKEN manquant")
 
-    base_url = "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + path
-    headers  = {"Authorization": "Bearer " + token}
+    base_url = (
+        "https://api.github.com/repos/"
+        + owner + "/" + repo + "/contents/" + path
+    )
+    headers = {"Authorization": "Bearer " + token}
 
     r = _req.get(base_url, headers=headers)
     sha = None
@@ -80,7 +98,9 @@ def _push_to_github_native(text, owner, repo, path, token):
     elif r.status_code != 404:
         r.raise_for_status()
 
-    content_b64 = _b64.b64encode(text.encode("utf-8")).decode("ascii")
+    content_b64 = _b64.b64encode(
+        text.encode("utf-8")
+    ).decode("ascii")
     payload = {
         "message": "HA logs system_log " + _dt.now().isoformat(),
         "content": content_b64,
@@ -117,7 +137,10 @@ def push_ha_warning_error_logs(chat_id=None):
         )
         if commit_url:
             log.info("GitHub logs: push OK -> " + commit_url)
-            _notify("Logs pousses sur GitHub !\n" + commit_url, chat_id)
+            _notify(
+                "Logs pousses sur GitHub !\n" + commit_url,
+                chat_id,
+            )
         else:
             _notify("Logs pousses sur GitHub.", chat_id)
     except Exception as e:
@@ -125,7 +148,8 @@ def push_ha_warning_error_logs(chat_id=None):
         _notify("Erreur ghpush :\n" + str(e), chat_id)
 
 
-@event_trigger("pyscript_gh")
-def handle_pyscript_gh(action=None, chat_id=None, **kwargs):
+@event_trigger("pyscript_ghpush")
+def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
+    """Gère l'event pyscript_ghpush déclenché par /ghpush."""
     if action == "push":
         push_ha_warning_error_logs(chat_id=chat_id)
