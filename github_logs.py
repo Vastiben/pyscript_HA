@@ -12,15 +12,21 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram en mode texte pur.
+    """Envoie un message Telegram en calquant la structure de watchdog_summary.
 
-    Calqué sur watchdog_summary: utilise target=[chat_id] et
-    laisse le parse_mode par défaut de l'intégration Telegram.
+    Envoie directement via service.call(
+        "telegram_bot", "send_message",
+        target=[chat_id], message=...).
     """
-    data = {"message": str(msg)}
-    if chat_id:
-        data["target"] = [chat_id]
-    service.call("telegram_bot", "send_message", **data)
+    if not chat_id:
+        return
+
+    service.call(
+        "telegram_bot",
+        "send_message",
+        target=[chat_id],
+        message=str(msg),
+    )
 
 
 @pyscript_compile
