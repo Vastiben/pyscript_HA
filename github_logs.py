@@ -12,15 +12,14 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram en mode texte brut (pas de Markdown)."""
+    """Envoie un message Telegram sans parse_mode explicite."""
     if not chat_id:
         return
     service.call(
         "telegram_bot",
         "send_message",
-        target=[chat_id],
+        target=chat_id,
         message=str(msg),
-        parse_mode="",
     )
 
 
@@ -106,18 +105,19 @@ def _push_to_github_native(text, owner, repo, path, token):
         "https://api.github.com/repos/"
         + owner + "/" + repo + "/contents/" + path
     )
-    headers = {"Authorization": "Bearer " + token}
+    headers = {
+        "Authorization": "Bearer " + token,
+        "Accept": "application/vnd.github+json",
+    }
 
-    r = _req.get(base_url, headers=headers)
+    r = _req.get(base_url, headers=headers, timeout=30)
     sha = None
     if r.status_code == 200:
         sha = r.json().get("sha")
     elif r.status_code != 404:
         r.raise_for_status()
 
-    content_b64 = _b64.b64encode(
-        text.encode("utf-8")
-    ).decode("ascii")
+    content_b64 = _b64.b64encode(text.encode("utf-8")).decode("ascii")
     payload = {
         "message": "HA logs system_log " + _dt.now().isoformat(),
         "content": content_b64,
@@ -125,7 +125,7 @@ def _push_to_github_native(text, owner, repo, path, token):
     if sha:
         payload["sha"] = sha
 
-    r = _req.put(base_url, json=payload, headers=headers)
+    r = _req.put(base_url, json=payload, headers=headers, timeout=30)
     r.raise_for_status()
     return r.json().get("commit", {}).get("html_url", "")
 
