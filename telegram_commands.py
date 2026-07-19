@@ -24,7 +24,7 @@ CONFIG = {
 # =========================
 def dbg(msg):
     if CONFIG["debug"]:
-        log.info(f"[TG] {msg}")
+        log.info("[TG] " + str(msg))
 
 
 dbg("✅ telegram_commands.py chargé")
@@ -36,6 +36,7 @@ HELP_TEXT = (
     "/fsroarand — mettre à jour le roarand\n"
     "/fsstatus — statut\n"
     "/fshealth — diagnostic complet\n"
+    "/fslogin — forcer un nouveau login\n"
     "/fstest — test\n"
     "/fsreset — reset\n\n"
     "🔧 GitHub / Pyscript\n"
@@ -56,6 +57,11 @@ COMMANDS = {
     "/fshealth": {
         "type": "event",
         "action": "health",
+    },
+
+    "/fslogin": {
+        "type": "event",
+        "action": "login",
     },
 
     "/fscookie": {
@@ -96,8 +102,8 @@ ALLOWED_SECRETS_KEYS = {
 # HELPERS
 # =========================
 def notify(msg, chat_id=None):
-    dbg(f"Notify → {msg[:50]}")
-    data = {"message": msg}
+    dbg("Notify -> " + str(msg)[:50])
+    data = {"message": str(msg)}
     if chat_id:
         data["target"] = chat_id
     service.call("telegram_bot", "send_message", **data)
@@ -147,7 +153,7 @@ def _write_secret_native(secrets_path, key, value):
 @event_trigger("telegram_command")
 def router(**kwargs):
     """Route les commandes Telegram vers les bons handlers."""
-    dbg(f"RAW: {kwargs}")
+    dbg("RAW: " + str(kwargs))
 
     cmd = (
         (kwargs.get("command") or "")
@@ -158,7 +164,7 @@ def router(**kwargs):
     text = parse_args(kwargs.get("args"))
     chat = kwargs.get("chat_id")
 
-    dbg(f"CMD={cmd} TEXT_LEN={len(text)}")
+    dbg("CMD=" + cmd + " TEXT_LEN=" + str(len(text)))
 
     spec = COMMANDS.get(cmd)
 
@@ -191,10 +197,10 @@ def router(**kwargs):
             task.executor(
                 _write_secret_native, SECRETS_PATH, key, text.strip()
             )
-            dbg(f"secrets.yaml mis à jour: {key}")
+            dbg("secrets.yaml mis a jour: " + key)
             notify("✅ Enregistré dans secrets.yaml.", chat)
         except Exception as e:
-            notify(f"❌ Erreur écriture secrets.yaml: {e}", chat)
+            notify("❌ Erreur écriture secrets.yaml: " + str(e), chat)
 
     # =====================
     # EVENT
@@ -202,7 +208,7 @@ def router(**kwargs):
     elif spec["type"] == "event":
 
         event_name = spec.get("event", "fusionsolar_command")
-        dbg(f"Fire event → {event_name}:{spec['action']}")
+        dbg("Fire event -> " + event_name + ":" + spec["action"])
 
         event.fire(
             event_name,
