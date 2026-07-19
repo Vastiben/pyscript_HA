@@ -1,6 +1,5 @@
 # /config/pyscript/fusionsolar.py
 
-import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -13,7 +12,7 @@ CONFIG = {
 TZ = ZoneInfo(CONFIG["tz"])
 
 SECRETS_PATH = "/config/secrets.yaml"
-SECRETS_KEY_COOKIE  = "fusionsolar_cookie"
+SECRETS_KEY_COOKIE = "fusionsolar_cookie"
 SECRETS_KEY_ROARAND = "fusionsolar_roarand"
 
 
@@ -21,7 +20,8 @@ SECRETS_KEY_ROARAND = "fusionsolar_roarand"
 # TELEGRAM
 # =========================
 def notify(msg, chat=None):
-    data = {"message": msg}
+    """Envoie un message Telegram sans parse_mode."""
+    data = {"message": str(msg)}
     if chat:
         data["target"] = chat
     service.call("telegram_bot", "send_message", **data)
@@ -39,7 +39,7 @@ def _read_secrets_native(path, key_cookie, key_roarand):
         data = _yaml.safe_load(f) or {}
 
     return {
-        "cookie":  data.get(key_cookie, "") or "",
+        "cookie": data.get(key_cookie, "") or "",
         "roarand": data.get(key_roarand, "") or "",
     }
 
@@ -109,16 +109,22 @@ def fetch_data(cookie, roarand):
         raise RuntimeError("NO_VALID_DATA")
 
     idx = valid[-1]
-    pv        = float(values[idx])
-    load      = float(data.get("usePower",       [0])[idx])
-    charge    = float(data.get("chargePower",    [0])[idx])
-    discharge = float(data.get("dischargePower", [0])[idx])
+    pv = float(values[idx])
+    load = float((data.get("usePower") or [0])[idx])
+    charge = float((data.get("chargePower") or [0])[idx])
+    discharge = float((data.get("dischargePower") or [0])[idx])
 
+    # Puissance réseau : positif = import, négatif = export
+    grid_vals = data.get("buyPower") or data.get("gridPower") or []
+    grid = float(grid_vals[idx]) if grid_vals else 0.0
+
+    # SOC : cherche le nœud dont deviceTips contient "SOC"
     nodes = ef.get("data", {}).get("flow", {}).get("nodes", [])
     soc = None
     for n in nodes:
-        if n.get("id") == "4":
-            soc = float(n.get("deviceTips", {}).get("SOC", 0))
+        tips = n.get("deviceTips") or {}
+        if "SOC" in tips:
+            soc = float(tips["SOC"])
             break
     if soc is None:
         raise RuntimeError("SOC_NOT_FOUND")
@@ -129,6 +135,7 @@ def fetch_data(cookie, roarand):
         "soc": soc,
         "charge": charge,
         "discharge": discharge,
+        "grid": grid,
     }
 
 
@@ -147,10 +154,43 @@ def fetch():
     except Exception as e:
         raise RuntimeError("SECRETS_READ_ERROR: " + str(e))
 
-    cookie  = creds.get("cookie", "")
+    cookie = creds.get("cookie", "")
     roarand = creds.get("roarand", "")
 
     return task.executor(fetch_data, cookie, roarand)
+
+
+def _update_sensors(m):
+    """Écrit les valeurs dans les senseurs pyscript de HA."""
+    sensor.fs_pv = m["pv"]
+    sensor.fs_pv.unit_of_measurement = "kW"
+    sensor.fs_pv.friendly_name = "FusionSolar PV"
+    sensor.fs_pv.device_class = "power"
+
+    sensor.fs_load = m["load"]
+    sensor.fs_load.unit_of_measurement = "kW"
+    sensor.fs_load.friendly_name = "FusionSolar Consommation"
+    sensor.fs_load.device_class = "power"
+
+    sensor.fs_soc = m["soc"]
+    sensor.fs_soc.unit_of_measurement = "%"
+    sensor.fs_soc.friendly_name = "FusionSolar Batterie SOC"
+    sensor.fs_soc.device_class = "battery"
+
+    sensor.fs_charge = m["charge"]
+    sensor.fs_charge.unit_of_measurement = "kW"
+    sensor.fs_charge.friendly_name = "FusionSolar Charge batterie"
+    sensor.fs_charge.device_class = "power"
+
+    sensor.fs_discharge = m["discharge"]
+    sensor.fs_discharge.unit_of_measurement = "kW"
+    sensor.fs_discharge.friendly_name = "FusionSolar Décharge batterie"
+    sensor.fs_discharge.device_class = "power"
+
+    sensor.fs_grid = m["grid"]
+    sensor.fs_grid.unit_of_measurement = "kW"
+    sensor.fs_grid.friendly_name = "FusionSolar Réseau"
+    sensor.fs_grid.device_class = "power"
 
 
 # =========================
@@ -160,17 +200,24 @@ def fetch():
 def handle(**kwargs):
     """Gère les commandes FusionSolar envoyées via Telegram."""
     action = kwargs.get("action")
-    chat   = kwargs.get("chat_id")
+    chat = kwargs.get("chat_id")
 
     if action == "test":
         try:
             m = fetch()
-            notify(f"✅ PV {m['pv']} kW\n🔋 SOC {m['soc']}%", chat)
+            _update_sensors(m)
+            notify(
+                "FusionSolar OK\n"
+                "PV : " + str(m["pv"]) + " kW\n"
+                "SOC : " + str(m["soc"]) + " %\n"
+                "Réseau : " + str(m["grid"]) + " kW",
+                chat,
+            )
         except Exception as e:
-            notify(f"❌ Erreur test: {e}", chat)
+            notify("Erreur test: " + str(e), chat)
 
     elif action == "health":
-        lines = ["🔍 FusionSolar Health"]
+        lines = ["FusionSolar Health"]
         try:
             creds = task.executor(
                 _read_secrets_native,
@@ -180,27 +227,38 @@ def handle(**kwargs):
             )
             ck = creds.get("cookie", "")
             rr = creds.get("roarand", "")
-            lines.append("✅ Cookie présent" if ck else "❌ Cookie absent")
-            lines.append("✅ Roarand présent" if rr else "⚠️ Roarand absent")
+            lines.append("OK Cookie present" if ck else "FAIL Cookie absent")
+            lines.append(
+                "OK Roarand present" if rr else "WARN Roarand absent"
+            )
         except Exception as e:
-            lines.append(f"❌ secrets.yaml illisible: {e}")
+            lines.append("FAIL secrets.yaml illisible: " + str(e))
         try:
             m = fetch()
-            lines.append(f"✅ API OK | PV {m['pv']} kW | SOC {m['soc']}%")
+            lines.append(
+                "OK API | PV "
+                + str(m["pv"])
+                + " kW | SOC "
+                + str(m["soc"])
+                + " %"
+                + " | Réseau "
+                + str(m["grid"])
+                + " kW"
+            )
         except Exception as e:
-            lines.append(f"❌ API: {e}")
+            lines.append("FAIL API: " + str(e))
         try:
             pv_val = state.get("sensor.fs_pv")
-            lines.append(f"✅ sensor.fs_pv = {pv_val}")
+            lines.append("OK sensor.fs_pv = " + str(pv_val))
         except Exception as e:
-            lines.append(f"❌ sensor: {e}")
+            lines.append("FAIL sensor: " + str(e))
         notify("\n".join(lines), chat)
 
     elif action == "status":
-        notify("✅ FusionSolar actif", chat)
+        notify("FusionSolar actif", chat)
 
     elif action == "reset":
-        notify("✅ Reset OK", chat)
+        notify("Reset OK", chat)
 
 
 # =========================
@@ -208,8 +266,16 @@ def handle(**kwargs):
 # =========================
 @time_trigger("period(now, 5min)")
 def auto():
-    """Rafraîchit les données FusionSolar toutes les 5 minutes."""
+    """Rafraîchit les données FusionSolar et met à jour les senseurs."""
     try:
-        fetch()
-    except Exception:
-        pass
+        m = fetch()
+        _update_sensors(m)
+        log.debug(
+            "[FS] MAJ OK — PV "
+            + str(m["pv"])
+            + " kW | SOC "
+            + str(m["soc"])
+            + " %"
+        )
+    except Exception as e:
+        log.error("[FS][ERR] Fetch failed: " + str(e))
