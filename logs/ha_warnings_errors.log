@@ -1,4 +1,4 @@
-Snapshot 2026-07-19T21:37:13.760924 -- 50 entree(s) system_log
+Snapshot 2026-07-19T21:50:02.428121 -- 50 entree(s) system_log
 
 [2026-07-15T20:57:22.318913] WARNING  (homeassistant.components.http.ban) Login attempt or request with invalid authentication from supervisor (172.30.32.2). Requested URL: '/api/core/state'. (HomeAssistantSupervisor/2026.06.2 aiohttp/3.14.1 Python/3.14)  [src=components/http/ban.py:136, count=3]
 [2026-07-15T23:50:10.358012] WARNING  (homeassistant.components.sensor.recorder) Entity sensor.fusionsolar_daily_energy has state class total_increasing, but its state is not strictly increasing. Triggered by state 32.23 (previous state: 32.49) with last_updated set to 2026-07-15T21:48:02.035708+00:00. Please create a bug report at https://github.com/home-assistant/core/issues?q=is%3Aopen+is%3Aissue  [src=components/sensor/recorder.py:416, count=4]
@@ -400,15 +400,15 @@ Traceback (most recent call last):
 voluptuous.error.MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
   [src=custom_components/pyscript/trigger.py:1397, count=5]
 [2026-07-19T21:00:00.230732] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=86]
-[2026-07-19T21:01:04.485027] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXTVQ7Y86FWYBPC73ZCKJAK): message=Nouveau code recupere depuis GitHub :
-Updating 858cdc1..c0bd748
-Fast-forward
- github_logs.py              |  13 +-
- logs/ha_warnings_errors.log | 383 +++++++++++++++++++++++++++-----------------
- 2 files changed, 244 insertions(+), 152 deletions(-), target=[7332342681]>  [src=core.py:2837, count=36]
 [2026-07-19T21:23:03.418906] ERROR    (custom_components.pyscript) Secrets not supported in this YAML file  [src=custom_components/pyscript/__init__.py:100, count=1]
 [2026-07-19T21:31:33.499449] ERROR    (custom_components.pyscript.file.fusionsolar.auto_login) [FS][ERR] Auto-login failed: LOGIN_MISSING_CREDENTIALS -- vérifier configuration.yaml  [src=custom_components/pyscript/eval.py:2018, count=1]
-[2026-07-19T21:36:08.399218] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2295]
-[2026-07-19T21:36:08.401958] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2295]
-[2026-07-19T21:36:34.259269] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch failed: COOKIE_MISSING -- verifier configuration.yaml > pyscript > global_ctx  [src=custom_components/pyscript/eval.py:2018, count=41]
-[2026-07-19T21:36:59.177774] ERROR    (custom_components.pyscript.file.fusionsolar.handle) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=45]
+[2026-07-19T21:46:34.190110] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch failed: COOKIE_MISSING -- verifier configuration.yaml > pyscript > global_ctx  [src=custom_components/pyscript/eval.py:2018, count=45]
+[2026-07-19T21:47:44.839079] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXYH21MAEZEJSSXYXW9QDN7): message=Erreur test: LOGIN_FAILED: réponse non-JSON -> 
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="stylesheet" type="text/css" hr, target=[7332342681]>  [src=core.py:2837, count=41]
+[2026-07-19T21:47:54.980642] ERROR    (custom_components.pyscript.file.fusionsolar.handle) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=49]
+[2026-07-19T21:48:48.421571] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2299]
+[2026-07-19T21:48:48.424694] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2299]
