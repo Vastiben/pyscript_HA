@@ -1,4 +1,4 @@
-Snapshot 2026-07-19T21:10:26.965846 -- 50 entree(s) system_log
+Snapshot 2026-07-19T21:10:40.248465 -- 50 entree(s) system_log
 
 [2026-07-15T08:36:30.876572] WARNING  (homeassistant.components.switch) Updating wake_on_lan switch took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=4]
 [2026-07-15T08:56:00.571631] ERROR    (homeassistant.components.hassio.http) Client error on api core/logs/follow request Cannot write to closing transport  [src=components/hassio/http.py:235, count=7]
