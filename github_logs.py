@@ -12,13 +12,17 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram sans parse_mode."""
+    """Envoie un message Telegram en HTML pour eviter les erreurs d'entites."""
     if not chat_id:
         return
-    data = {"message": str(msg)}
-    if chat_id:
-        data["target"] = chat_id
-    service.call("telegram_bot", "send_message", **data)
+    service.call(
+        "telegram_bot",
+        "send_message",
+        target=chat_id,
+        message=str(msg),
+        parse_mode="html",
+        disable_web_page_preview=True,
+    )
 
 
 def _format_source(source):
@@ -103,7 +107,6 @@ def _push_to_github_native(text, owner, repo, path, token):
         "User-Agent": "pyscript-ha",
     }
 
-    # GET pour recuperer le SHA
     sha = None
     req = _url.Request(base_url, headers=headers, method="GET")
     try:
@@ -157,7 +160,7 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
         )
         if commit_url:
             log.info("GitHub logs: push OK -> %s", commit_url)
-            _notify("Logs pousses !\n" + commit_url, chat_id)
+            _notify("Logs pousses ! <a href=\"" + commit_url + "\">voir commit</a>", chat_id)
         else:
             _notify("Logs pousses sur GitHub.", chat_id)
     except Exception as e:
