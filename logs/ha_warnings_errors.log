@@ -1,4 +1,4 @@
-Snapshot 2026-07-19T22:08:56.893121 -- 50 entree(s) system_log
+Snapshot 2026-07-19T22:09:08.810373 -- 50 entree(s) system_log
 
 [2026-07-15T20:57:22.318913] WARNING  (homeassistant.components.http.ban) Login attempt or request with invalid authentication from supervisor (172.30.32.2). Requested URL: '/api/core/state'. (HomeAssistantSupervisor/2026.06.2 aiohttp/3.14.1 Python/3.14)  [src=components/http/ban.py:136, count=3]
 [2026-07-15T23:50:10.358012] WARNING  (homeassistant.components.sensor.recorder) Entity sensor.fusionsolar_daily_energy has state class total_increasing, but its state is not strictly increasing. Triggered by state 32.23 (previous state: 32.49) with last_updated set to 2026-07-15T21:48:02.035708+00:00. Please create a bug report at https://github.com/home-assistant/core/issues?q=is%3Aopen+is%3Aissue  [src=components/sensor/recorder.py:416, count=4]
@@ -406,5 +406,5 @@ voluptuous.error.MultipleInvalid: value must be one of ['html', 'markdown', 'mar
 [2026-07-19T22:05:17.315294] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch failed: SESSION_EXPIRED  [src=custom_components/pyscript/eval.py:2018, count=55]
 [2026-07-19T22:07:48.978102] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2305]
 [2026-07-19T22:07:48.988904] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2305]
-[2026-07-19T22:08:27.949898] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXZSB489P9F308XM6KV4NA7): message=Logs pousses sur GitHub !
-https://github.com/Vastiben/pyscript_HA/commit/d3c231362841d904f468d16c7900c44de0670e29, target=[7332342681]>  [src=core.py:2837, count=52]
+[2026-07-19T22:08:59.278081] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXZV6J76YKY7E6DMGT21XVY): message=Logs pousses sur GitHub !
+https://github.com/Vastiben/pyscript_HA/commit/2f24b607cc5d6947c1ef05a09e6a2baeeecf65cc, target=[7332342681]>  [src=core.py:2837, count=53]
