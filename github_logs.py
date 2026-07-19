@@ -24,12 +24,25 @@ def _notify(msg, chat_id=None):
     )
 
 
+def _format_source(source):
+    """Normalise le champ source en string lisible.
+
+    Dans les versions récentes de HA, source peut être :
+    - un tuple/liste  ("fichier.py", 42)
+    - une string      "fichier.py:42"
+    - autre chose     → str() de secours
+    """
+    if isinstance(source, (list, tuple)) and len(source) >= 2:
+        return f"{source[0]}:{source[1]}"
+    return str(source)
+
+
 def _collect_log_entries():
-    """Collecte les entrees system_log et retourne un texte formate."""
+    """Collecte les entrées system_log et retourne un texte formaté."""
     try:
         records = hass.data["system_log"].records
     except Exception as e:
-        log.error("GitHub logs: impossible de lire system_log: " + str(e))
+        log.error("GitHub logs: impossible de lire system_log: %s", str(e))
         return ""
 
     lines = []
@@ -47,11 +60,8 @@ def _collect_log_entries():
             ts = str(timestamp)
 
         msg = messages[0] if messages else ""
-        src = (
-            source[0] + ":" + str(source[1])
-            if isinstance(source, (list, tuple)) and len(source) >= 2
-            else str(source)
-        )
+        src = _format_source(source)
+
         lines.append(
             "[" + ts + "] "
             + str(level).ljust(8)
@@ -75,7 +85,7 @@ def _collect_log_entries():
 
 @pyscript_compile
 def _write_local_log_native(path, text):
-    """Ecrit le contenu texte dans un fichier local (fonction native)."""
+    """Écrit le contenu texte dans un fichier local (fonction native)."""
     from pathlib import Path as _Path
     _Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -122,21 +132,21 @@ def _push_to_github_native(text, owner, repo, path, token):
 
 @event_trigger("pyscript_ghpush")
 def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
-    """Gere l'event pyscript_ghpush declenche par /ghpush."""
+    """Gère l'event pyscript_ghpush déclenché par /ghpush."""
     if action != "push":
         return
 
     text = _collect_log_entries()
 
     if not text.strip():
-        log.debug("GitHub logs: aucune entree system_log.")
+        log.debug("GitHub logs: aucune entrée system_log.")
         _notify("Aucune entree a envoyer.", chat_id)
         return
 
     try:
         task.executor(_write_local_log_native, LOCAL_LOG_FILE, text)
     except Exception as e:
-        log.error("GitHub logs: erreur ecriture locale: " + str(e))
+        log.error("GitHub logs: erreur ecriture locale: %s", str(e))
 
     try:
         commit_url = task.executor(
@@ -148,10 +158,10 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
             GITHUB_TOKEN,
         )
         if commit_url:
-            log.info("GitHub logs: push OK -> " + commit_url)
+            log.info("GitHub logs: push OK -> %s", commit_url)
             _notify("Logs pousses sur GitHub !\n" + commit_url, chat_id)
         else:
             _notify("Logs pousses sur GitHub.", chat_id)
     except Exception as e:
-        log.error("GitHub logs: push FAIL: " + str(e))
+        log.error("GitHub logs: push FAIL: %s", str(e))
         _notify("Erreur push: " + str(e)[:200], chat_id)

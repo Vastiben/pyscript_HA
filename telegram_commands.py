@@ -104,9 +104,17 @@ def notify(msg, chat_id=None):
 
 
 def parse_args(args):
+    """Convertit les args Telegram en string propre.
+
+    Les args peuvent arriver comme une liste de tokens mixtes
+    (strings, entiers…) ou comme une string brute. On normalise
+    toujours vers une string stripped.
+    """
     if isinstance(args, list):
-        return " ".join([str(x) for x in args])
-    return str(args or "").strip()
+        return " ".join(str(x) for x in args).strip()
+    if args is None:
+        return ""
+    return str(args).strip()
 
 
 @pyscript_compile
@@ -117,17 +125,14 @@ def _write_secret_native(secrets_path, key, value):
 
     path = _Path(secrets_path)
 
-    # Lecture du fichier existant
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             data = _yaml.safe_load(f) or {}
     else:
         data = {}
 
-    # Mise à jour de la clé — jamais de suppression
     data[key] = value
 
-    # Réécriture du fichier en préservant toutes les autres clés
     with open(path, "w", encoding="utf-8") as f:
         _yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
 
@@ -179,7 +184,9 @@ def router(**kwargs):
             return
 
         try:
-            task.executor(_write_secret_native, SECRETS_PATH, key, text.strip())
+            task.executor(
+                _write_secret_native, SECRETS_PATH, key, text.strip()
+            )
             dbg(f"secrets.yaml mis à jour: {key}")
             notify("✅ Enregistré dans secrets.yaml.", chat)
         except Exception as e:
