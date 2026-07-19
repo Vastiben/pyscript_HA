@@ -12,7 +12,7 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram en texte brut (sans parse_mode)."""
+    """Envoie un message Telegram sans parse_mode."""
     if not chat_id:
         return
     data = {"message": str(msg)}
@@ -22,20 +22,12 @@ def _notify(msg, chat_id=None):
 
 
 def _format_source(source):
-    """Normalise le champ source en string lisible.
-
-    Dans les versions récentes de HA, source peut être :
-    - un tuple/liste  ("fichier.py", 42)
-    - une string      "fichier.py:42"
-    - autre chose     → str() de secours
-    """
     if isinstance(source, (list, tuple)) and len(source) >= 2:
         return f"{source[0]}:{source[1]}"
     return str(source)
 
 
 def _collect_log_entries():
-    """Collecte les entrées system_log et retourne un texte formaté."""
     try:
         records = hass.data["system_log"].records
     except Exception as e:
@@ -82,7 +74,6 @@ def _collect_log_entries():
 
 @pyscript_compile
 def _write_local_log_native(path, text):
-    """Écrit le contenu texte dans un fichier local (fonction native)."""
     from pathlib import Path as _Path
     _Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -91,9 +82,11 @@ def _write_local_log_native(path, text):
 
 @pyscript_compile
 def _push_to_github_native(text, owner, repo, path, token):
-    """Pousse le contenu texte vers GitHub via l'API REST (fonction native)."""
+    """Pousse vers GitHub via urllib.request (pas de requests/urllib3)."""
     import base64 as _b64
-    import requests as _req
+    import json as _json
+    import urllib.request as _url
+    import urllib.error as _uerr
     from datetime import datetime as _dt
 
     if not token:
@@ -106,14 +99,20 @@ def _push_to_github_native(text, owner, repo, path, token):
     headers = {
         "Authorization": "Bearer " + token,
         "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "User-Agent": "pyscript-ha",
     }
 
-    r = _req.get(base_url, headers=headers, timeout=30)
+    # GET pour recuperer le SHA
     sha = None
-    if r.status_code == 200:
-        sha = r.json().get("sha")
-    elif r.status_code != 404:
-        r.raise_for_status()
+    req = _url.Request(base_url, headers=headers, method="GET")
+    try:
+        with _url.urlopen(req, timeout=30) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+            sha = data.get("sha")
+    except _uerr.HTTPError as e:
+        if e.code != 404:
+            raise
 
     content_b64 = _b64.b64encode(text.encode("utf-8")).decode("ascii")
     payload = {
@@ -123,21 +122,22 @@ def _push_to_github_native(text, owner, repo, path, token):
     if sha:
         payload["sha"] = sha
 
-    r = _req.put(base_url, json=payload, headers=headers, timeout=30)
-    r.raise_for_status()
-    return r.json().get("commit", {}).get("html_url", "")
+    body = _json.dumps(payload).encode("utf-8")
+    req = _url.Request(base_url, data=body, headers=headers, method="PUT")
+    with _url.urlopen(req, timeout=30) as resp:
+        result = _json.loads(resp.read().decode("utf-8"))
+        return result.get("commit", {}).get("html_url", "")
 
 
 @event_trigger("pyscript_ghpush")
 def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
-    """Gère l'event pyscript_ghpush déclenché par /ghpush."""
     if action != "push":
         return
 
     text = _collect_log_entries()
 
     if not text.strip():
-        log.debug("GitHub logs: aucune entrée system_log.")
+        log.debug("GitHub logs: aucune entree system_log.")
         _notify("Aucune entree a envoyer.", chat_id)
         return
 
@@ -157,9 +157,9 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
         )
         if commit_url:
             log.info("GitHub logs: push OK -> %s", commit_url)
-            _notify("Logs pousses sur GitHub !\n" + commit_url, chat_id)
+            _notify("Logs pousses !\n" + commit_url, chat_id)
         else:
             _notify("Logs pousses sur GitHub.", chat_id)
     except Exception as e:
         log.error("GitHub logs: push FAIL: %s", str(e))
-        _notify("Erreur push: " + str(e)[:200], chat_id)
+        _notify("Erreur push: " + str(e)[:300], chat_id)
