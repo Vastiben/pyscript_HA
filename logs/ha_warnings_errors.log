@@ -1,4 +1,4 @@
-Snapshot 2026-07-19T20:52:42.037521 -- 50 entree(s) system_log
+Snapshot 2026-07-19T20:57:49.833046 -- 50 entree(s) system_log
 
 [2026-07-15T08:36:30.876572] WARNING  (homeassistant.components.switch) Updating wake_on_lan switch took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=4]
 [2026-07-15T08:56:00.571631] ERROR    (homeassistant.components.hassio.http) Client error on api core/logs/follow request Cannot write to closing transport  [src=components/hassio/http.py:235, count=7]
@@ -262,9 +262,21 @@ Traceback (most recent call last):
 [2026-07-19T17:25:19.240353] WARNING  (pyatv.support.http) Got response without having a request: HttpResponse(protocol='HTTP', version='1.1', code=200, message='OK', headers={'Date': 'Sun, 19 Jul 2026 14:59:51 GMT', 'Content-Length': '0', 'Server': 'AirTunes/950.7.1', 'X-Apple-ProcessingTime': '5', 'X-Apple-RequestReceivedTimestamp': '1069676979'}, body='')  [src=runner.py:289, count=4]
 [2026-07-19T17:25:25.225159] WARNING  (homeassistant.components.apple_tv) Connection was re-established to device "Bureau"  [src=components/apple_tv/__init__.py:338, count=7]
 [2026-07-19T20:00:00.312331] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=85]
-[2026-07-19T20:40:40.972451] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) GitHub logs: push FAIL: Caught blocking call to putrequest with args (<HTTPSConnection(host='api.github.com', port=443) at 0xffff4a9e4b90>, 'GET', '/repos/Vastiben/pyscript_HA/contents/logs/ha_warnings_errors.log') inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/site-packages/urllib3/connection.py, line 406: return super().putrequest(), please create a bug report at https://github.com/custom-components/pyscript/issues
-For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#putrequest  [src=custom_components/pyscript/eval.py:2018, count=14]
-[2026-07-19T20:40:41.003937] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) Exception in <file.github_logs.handle_pyscript_ghpush> line 26:
+[2026-07-19T20:50:55.773027] ERROR    (custom_components.pyscript.file.telegram_commands.router) Exception in <file.telegram_commands.router> line 114:
+            return " ".join(str(x) for x in args).strip()
+                           ^
+NotImplementedError: file.telegram_commands.router: not implemented ast ast_generatorexp
+Traceback (most recent call last):
+  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
+    val = await getattr(self, name, self.ast_not_implemented)(arg)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/config/custom_components/pyscript/eval.py", line 937, in ast_not_implemented
+    raise NotImplementedError(f"{self.name}: not implemented ast " + name)
+NotImplementedError: file.telegram_commands.router: not implemented ast ast_generatorexp
+  [src=custom_components/pyscript/trigger.py:1397, count=3]
+[2026-07-19T20:52:43.926588] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) GitHub logs: push FAIL: Caught blocking call to putrequest with args (<HTTPSConnection(host='api.github.com', port=443) at 0xffff4a9e4b90>, 'GET', '/repos/Vastiben/pyscript_HA/contents/logs/ha_warnings_errors.log') inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/site-packages/urllib3/connection.py, line 406: return super().putrequest(), please create a bug report at https://github.com/custom-components/pyscript/issues
+For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#putrequest  [src=custom_components/pyscript/eval.py:2018, count=15]
+[2026-07-19T20:52:43.956561] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) Exception in <file.github_logs.handle_pyscript_ghpush> line 26:
         service.call("telegram_bot", "send_message", **data)
                                      ^
 MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
@@ -391,21 +403,11 @@ Traceback (most recent call last):
   File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 382, in validate_mapping
     raise er.MultipleInvalid(errors)
 voluptuous.error.MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
-  [src=custom_components/pyscript/trigger.py:1397, count=4]
-[2026-07-19T20:48:26.263078] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXSTKD4YQXJ1C02W4XH7V0R): target=[7332342681], message=Erreur ghpush :
-Caught blocking call to putrequest with args (<HTTPSConnection(host='api.github.com', port=443) at 0xffff662d5950>, 'GET', '/repos/Vastiben/pyscript_HA/contents/logs/ha_warnings_errors.log') inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/site-packages/urllib3/connection.py, line 406: return super().putrequest(), please create a bug report at https://github.com/custom-components/pyscript/issues
-For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#putrequest>  [src=core.py:2837, count=33]
-[2026-07-19T20:50:55.773027] ERROR    (custom_components.pyscript.file.telegram_commands.router) Exception in <file.telegram_commands.router> line 114:
-            return " ".join(str(x) for x in args).strip()
-                           ^
-NotImplementedError: file.telegram_commands.router: not implemented ast ast_generatorexp
-Traceback (most recent call last):
-  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
-    val = await getattr(self, name, self.ast_not_implemented)(arg)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/config/custom_components/pyscript/eval.py", line 937, in ast_not_implemented
-    raise NotImplementedError(f"{self.name}: not implemented ast " + name)
-NotImplementedError: file.telegram_commands.router: not implemented ast ast_generatorexp
-  [src=custom_components/pyscript/trigger.py:1397, count=3]
-[2026-07-19T20:51:48.311227] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2281]
-[2026-07-19T20:51:48.313841] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2281]
+  [src=custom_components/pyscript/trigger.py:1397, count=5]
+[2026-07-19T20:54:58.317255] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2282]
+[2026-07-19T20:54:58.319412] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2282]
+[2026-07-19T20:57:45.339873] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXTRA6GG5AVYDK2RAQVAYB7): message=Nouveau code recupere depuis GitHub :
+Updating c7cf222..858cdc1
+Fast-forward
+ github_logs.py | 28 ++++++++++------------------
+ 1 file changed, 10 insertions(+), 18 deletions(-), target=[7332342681]>  [src=core.py:2837, count=34]
