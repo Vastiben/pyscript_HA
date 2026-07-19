@@ -12,16 +12,13 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram en texte brut (pas de parsing Markdown)."""
+    """Envoie un message Telegram en texte brut (sans parse_mode)."""
     if not chat_id:
         return
-    service.call(
-        "telegram_bot",
-        "send_message",
-        target=chat_id,
-        message=str(msg),
-        parse_mode="plain_text",
-    )
+    data = {"message": str(msg)}
+    if chat_id:
+        data["target"] = chat_id
+    service.call("telegram_bot", "send_message", **data)
 
 
 def _format_source(source):
