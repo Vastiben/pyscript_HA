@@ -11,10 +11,6 @@ CONFIG = {
 
 TZ = ZoneInfo(CONFIG["tz"])
 
-SECRETS_PATH = "/config/secrets.yaml"
-SECRETS_KEY_COOKIE = "fusionsolar_cookie"
-SECRETS_KEY_ROARAND = "fusionsolar_roarand"
-
 
 # =========================
 # TELEGRAM
@@ -28,22 +24,8 @@ def notify(msg, chat=None):
 
 
 # =========================
-# PURE PYTHON (natif — appelable via task.executor)
+# PURE PYTHON (natif - appelable via task.executor)
 # =========================
-@pyscript_compile
-def _read_secrets_native(path, key_cookie, key_roarand):
-    """Lit cookie et roarand depuis secrets.yaml."""
-    import yaml as _yaml
-
-    with open(path, "r", encoding="utf-8") as f:
-        data = _yaml.safe_load(f) or {}
-
-    return {
-        "cookie": data.get(key_cookie, "") or "",
-        "roarand": data.get(key_roarand, "") or "",
-    }
-
-
 @pyscript_compile
 def fetch_data(cookie, roarand):
     """Interroge l'API FusionSolar, retourne les metriques PV."""
@@ -143,19 +125,14 @@ def fetch_data(cookie, roarand):
 # WRAPPER
 # =========================
 def fetch():
-    """Lit les credentials depuis secrets.yaml puis interroge l'API."""
-    try:
-        creds = task.executor(
-            _read_secrets_native,
-            SECRETS_PATH,
-            SECRETS_KEY_COOKIE,
-            SECRETS_KEY_ROARAND,
-        )
-    except Exception as e:
-        raise RuntimeError("SECRETS_READ_ERROR: " + str(e))
+    """Lit les credentials depuis pyscript.config puis interroge l'API."""
+    cookie = pyscript.config.get("fusionsolar_cookie", "")
+    roarand = pyscript.config.get("fusionsolar_roarand", "")
 
-    cookie = creds.get("cookie", "")
-    roarand = creds.get("roarand", "")
+    if not cookie:
+        raise RuntimeError(
+            "COOKIE_MISSING -- verifier configuration.yaml > pyscript > global_ctx"
+        )
 
     return task.executor(fetch_data, cookie, roarand)
 
@@ -249,21 +226,10 @@ def handle(**kwargs):
 
     elif action == "health":
         lines = ["FusionSolar Health"]
-        try:
-            creds = task.executor(
-                _read_secrets_native,
-                SECRETS_PATH,
-                SECRETS_KEY_COOKIE,
-                SECRETS_KEY_ROARAND,
-            )
-            ck = creds.get("cookie", "")
-            rr = creds.get("roarand", "")
-            lines.append("OK Cookie present" if ck else "FAIL Cookie absent")
-            lines.append(
-                "OK Roarand present" if rr else "WARN Roarand absent"
-            )
-        except Exception as e:
-            lines.append("FAIL secrets: " + str(e))
+        ck = pyscript.config.get("fusionsolar_cookie", "")
+        rr = pyscript.config.get("fusionsolar_roarand", "")
+        lines.append("OK Cookie present" if ck else "FAIL Cookie absent")
+        lines.append("OK Roarand present" if rr else "WARN Roarand absent")
         try:
             m = fetch()
             lines.append(
