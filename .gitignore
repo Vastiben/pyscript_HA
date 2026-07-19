@@ -1,0 +1,23 @@
+# Secrets HA — ne jamais versionner
+secrets.yaml
+*.secret
+
+# Logs locaux
+logs/*.log
+
+# Fichiers Python temporaires
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
