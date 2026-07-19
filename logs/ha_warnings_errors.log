@@ -1,6 +1,5 @@
-Snapshot 2026-07-19T20:40:39.175412 -- 50 entree(s) system_log
+Snapshot 2026-07-19T20:52:42.037521 -- 50 entree(s) system_log
 
-[2026-07-15T07:50:02.944387] ERROR    (homeassistant.components.homeassistant) The telegram_bot integration does not support YAML setup, please remove it from your configuration file  [src=helpers/config_validation.py:1259, count=1]
 [2026-07-15T08:36:30.876572] WARNING  (homeassistant.components.switch) Updating wake_on_lan switch took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=4]
 [2026-07-15T08:56:00.571631] ERROR    (homeassistant.components.hassio.http) Client error on api core/logs/follow request Cannot write to closing transport  [src=components/hassio/http.py:235, count=7]
 [2026-07-15T20:57:22.318913] WARNING  (homeassistant.components.http.ban) Login attempt or request with invalid authentication from supervisor (172.30.32.2). Requested URL: '/api/core/state'. (HomeAssistantSupervisor/2026.06.2 aiohttp/3.14.1 Python/3.14)  [src=components/http/ban.py:136, count=3]
@@ -159,7 +158,113 @@ Traceback (most recent call last):
             ^
 SyntaxError: unterminated f-string literal (detected at line 131)
   [src=custom_components/pyscript/global_ctx.py:335, count=1]
-[2026-07-18T08:17:41.193638] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) Exception in <file.github_logs.handle_pyscript_ghpush> line 26:
+[2026-07-18T08:56:23.642205] ERROR    (custom_components.pyscript.file.pull.handle_pyscript_ghpull) Exception in <file.pull.handle_pyscript_ghpull> line 13:
+        service.call("telegram_bot", "send_message", **data)
+                                     ^
+MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
+Traceback (most recent call last):
+  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
+    val = await getattr(self, name, self.ast_not_implemented)(arg)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/config/custom_components/pyscript/eval.py", line 1967, in ast_call
+    return await self.call_func(func, func_name, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/config/custom_components/pyscript/eval.py", line 2009, in call_func
+    return await func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/config/custom_components/pyscript/function.py", line 334, in service_call
+    return await cls.hass_services_async_call(domain, name, kwargs, **hass_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/config/custom_components/pyscript/function.py", line 434, in hass_services_async_call
+    return await cls.hass.services.async_call(domain, service, kwargs, **hass_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/core.py", line 2782, in async_call
+    processed_data: dict[str, Any] = handler.schema(service_data)
+                                     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/validators.py", line 259, in __call__
+    return self._exec((Schema(val) for val in self.validators), v)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/validators.py", line 386, in _exec
+    raise e if self.msg is None else AllInvalid(self.msg, path=path)
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/validators.py", line 382, in _exec
+    v = func(v)
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 205, in __call__
+    return self._compiled([], data)
+           ~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 779, in validate_callable
+    return schema(data)
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 205, in __call__
+    return self._compiled([], data)
+           ~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 549, in validate_dict
+    return base_validate(path, data.items(), out)
+  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 382, in validate_mapping
+    raise er.MultipleInvalid(errors)
+voluptuous.error.MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
+  [src=custom_components/pyscript/trigger.py:1397, count=2]
+[2026-07-18T09:18:10.239188] WARNING  (homeassistant.util.loop) Detected blocking call to load_verify_locations with args (<ssl.SSLContext object at 0xffff59192b10>, '/usr/local/lib/python3.14/site-packages/certifi/cacert.pem', None, None) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs) (offender: /usr/local/lib/python3.14/site-packages/urllib3/util/ssl_.py, line 461: context.load_verify_locations(ca_certs, ca_cert_dir, ca_cert_data)), please create a bug report at https://github.com/custom-components/pyscript/issues
+For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#load_verify_locations
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 229, in <module>
+    sys.exit(main())
+  File "/usr/src/homeassistant/homeassistant/__main__.py", line 215, in main
+    exit_code = runner.run(runtime_conf)
+  File "/usr/src/homeassistant/homeassistant/runner.py", line 289, in run
+    return loop.run_until_complete(setup_and_run_hass(runtime_config))
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 706, in run_until_complete
+    self.run_forever()
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677, in run_forever
+    self._run_once()
+  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2046, in _run_once
+    handle._run()
+  File "/usr/local/lib/python3.14/asyncio/events.py", line 94, in _run
+    self._context.run(self._callback, *self._args)
+  File "/config/custom_components/pyscript/function.py", line 448, in run_coro
+    result = await coro
+  File "/config/custom_components/pyscript/trigger.py", line 1395, in do_func_call
+    await ast_ctx.call_func(func, None, **kwargs)
+  File "/config/custom_components/pyscript/eval.py", line 1982, in call_func
+    return await func.call(self, *args, **kwargs)
+  File "/config/custom_components/pyscript/eval.py", line 806, in call
+    val = await self.try_aeval(ast_ctx, arg1)
+  File "/config/custom_components/pyscript/eval.py", line 706, in try_aeval
+    return await ast_ctx.aeval(arg)
+  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
+    val = await getattr(self, name, self.ast_not_implemented)(arg)
+  File "/config/custom_components/pyscript/eval.py", line 1250, in ast_try
+    val = await self.aeval(arg1)
+  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
+    val = await getattr(self, name, self.ast_not_implemented)(arg)
+  File "/config/custom_components/pyscript/eval.py", line 1494, in ast_assign
+    rhs = await self.aeval(arg.value)
+  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
+    val = await getattr(self, name, self.ast_not_implemented)(arg)
+  File "/config/custom_components/pyscript/eval.py", line 1967, in ast_call
+    return await self.call_func(func, func_name, *args, **kwargs)
+  File "/config/custom_components/pyscript/eval.py", line 2018, in call_func
+    return func(*args, **kwargs)
+  [src=util/loop.py:137, count=9]
+[2026-07-18T12:19:41.612675] WARNING  (firebase_messaging.fcmpushclient) Server sent Close message, resetting  [src=runner.py:289, count=1]
+[2026-07-18T20:32:28.337985] ERROR    (homeassistant.components.automation.simulation_presence_auto) Détection mouvement: Simulation présence: Error executing script. Error for call_service at pos 9: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=helpers/script.py:2098, count=12]
+[2026-07-18T20:32:28.343919] ERROR    (homeassistant.components.automation.simulation_presence_auto) Error while executing automation automation.simulation_presence_auto: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=components/automation/__init__.py:847, count=5]
+[2026-07-18T21:39:58.785779] ERROR    (homeassistant) Error doing job: Future exception was never retrieved (task: None)  [src=/usr/src/homeassistant/homeassistant/runner.py:238, count=1]
+[2026-07-19T04:06:33.663984] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=6]
+[2026-07-19T04:06:33.685946] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Failed to connect to service HostServiceInfo(host='192.168.1.131', port=8009), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=6]
+[2026-07-19T14:45:00.206915] WARNING  (custom_components.pyscript.file.wireguard_watchdog.wireguard_ha_slave_check) ⚠ tentative 9/9 KO | handshake=OK | ping=PING 172.27.66.3 (172.27.66.3): 56 data bytes
+
+--- 172.27.66.3 ping statistics ---
+1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=195]
+[2026-07-19T17:01:08.777331] ERROR    (pyhap.hap_handler) HASS Bridge: Client ('fe80::1ca3:af85:63c6:d926', 49941, 0, 2) with uuid c10e30ea-0add-4eb9-928b-0d397c13a548 attempted pair verify without being paired first (public_key=7cda8e835c969a8d5c93f1da984be65e5192310622b75fb890284ff1f62caa54, paired clients={UUID('8db0643e-2d83-4f6e-8fe2-65c346d4f8c7'): '7b5a54d828165a7f6fbcad4a094f32f73d3f8cdd17782453f2c0575d3f04067e', UUID('487e2443-d224-4a99-8d0e-17f757cd57cc'): '802a6c222a6d34fd9549c71f8e935fe9ef9fa555d18afca5c0c24ed1df24cb4e'}).  [src=runner.py:289, count=4]
+[2026-07-19T17:24:58.045274] WARNING  (homeassistant.components.apple_tv) Connection lost to Apple TV "Bureau"  [src=components/apple_tv/__init__.py:152, count=7]
+[2026-07-19T17:25:09.771995] ERROR    (homeassistant.components.apple_tv) Failed to connect  [src=components/apple_tv/__init__.py:224, count=9]
+[2026-07-19T17:25:19.240353] WARNING  (pyatv.support.http) Got response without having a request: HttpResponse(protocol='HTTP', version='1.1', code=200, message='OK', headers={'Date': 'Sun, 19 Jul 2026 14:59:51 GMT', 'Content-Length': '0', 'Server': 'AirTunes/950.7.1', 'X-Apple-ProcessingTime': '5', 'X-Apple-RequestReceivedTimestamp': '1069676979'}, body='')  [src=runner.py:289, count=4]
+[2026-07-19T17:25:25.225159] WARNING  (homeassistant.components.apple_tv) Connection was re-established to device "Bureau"  [src=components/apple_tv/__init__.py:338, count=7]
+[2026-07-19T20:00:00.312331] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=85]
+[2026-07-19T20:40:40.972451] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) GitHub logs: push FAIL: Caught blocking call to putrequest with args (<HTTPSConnection(host='api.github.com', port=443) at 0xffff4a9e4b90>, 'GET', '/repos/Vastiben/pyscript_HA/contents/logs/ha_warnings_errors.log') inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/site-packages/urllib3/connection.py, line 406: return super().putrequest(), please create a bug report at https://github.com/custom-components/pyscript/issues
+For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#putrequest  [src=custom_components/pyscript/eval.py:2018, count=14]
+[2026-07-19T20:40:41.003937] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) Exception in <file.github_logs.handle_pyscript_ghpush> line 26:
         service.call("telegram_bot", "send_message", **data)
                                      ^
 MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
@@ -286,113 +391,21 @@ Traceback (most recent call last):
   File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 382, in validate_mapping
     raise er.MultipleInvalid(errors)
 voluptuous.error.MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
-  [src=custom_components/pyscript/trigger.py:1397, count=3]
-[2026-07-18T08:56:23.642205] ERROR    (custom_components.pyscript.file.pull.handle_pyscript_ghpull) Exception in <file.pull.handle_pyscript_ghpull> line 13:
-        service.call("telegram_bot", "send_message", **data)
-                                     ^
-MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
+  [src=custom_components/pyscript/trigger.py:1397, count=4]
+[2026-07-19T20:48:26.263078] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXSTKD4YQXJ1C02W4XH7V0R): target=[7332342681], message=Erreur ghpush :
+Caught blocking call to putrequest with args (<HTTPSConnection(host='api.github.com', port=443) at 0xffff662d5950>, 'GET', '/repos/Vastiben/pyscript_HA/contents/logs/ha_warnings_errors.log') inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/site-packages/urllib3/connection.py, line 406: return super().putrequest(), please create a bug report at https://github.com/custom-components/pyscript/issues
+For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#putrequest>  [src=core.py:2837, count=33]
+[2026-07-19T20:50:55.773027] ERROR    (custom_components.pyscript.file.telegram_commands.router) Exception in <file.telegram_commands.router> line 114:
+            return " ".join(str(x) for x in args).strip()
+                           ^
+NotImplementedError: file.telegram_commands.router: not implemented ast ast_generatorexp
 Traceback (most recent call last):
   File "/config/custom_components/pyscript/eval.py", line 946, in aeval
     val = await getattr(self, name, self.ast_not_implemented)(arg)
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/config/custom_components/pyscript/eval.py", line 1967, in ast_call
-    return await self.call_func(func, func_name, *args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/config/custom_components/pyscript/eval.py", line 2009, in call_func
-    return await func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/config/custom_components/pyscript/function.py", line 334, in service_call
-    return await cls.hass_services_async_call(domain, name, kwargs, **hass_args)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/config/custom_components/pyscript/function.py", line 434, in hass_services_async_call
-    return await cls.hass.services.async_call(domain, service, kwargs, **hass_args)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/src/homeassistant/homeassistant/core.py", line 2782, in async_call
-    processed_data: dict[str, Any] = handler.schema(service_data)
-                                     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/validators.py", line 259, in __call__
-    return self._exec((Schema(val) for val in self.validators), v)
-           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/validators.py", line 386, in _exec
-    raise e if self.msg is None else AllInvalid(self.msg, path=path)
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/validators.py", line 382, in _exec
-    v = func(v)
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 205, in __call__
-    return self._compiled([], data)
-           ~~~~~~~~~~~~~~^^^^^^^^^^
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 779, in validate_callable
-    return schema(data)
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 205, in __call__
-    return self._compiled([], data)
-           ~~~~~~~~~~~~~~^^^^^^^^^^
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 549, in validate_dict
-    return base_validate(path, data.items(), out)
-  File "/usr/local/lib/python3.14/site-packages/voluptuous/schema_builder.py", line 382, in validate_mapping
-    raise er.MultipleInvalid(errors)
-voluptuous.error.MultipleInvalid: value must be one of ['html', 'markdown', 'markdownv2', 'plain_text'] for dictionary value @ data['parse_mode']
-  [src=custom_components/pyscript/trigger.py:1397, count=2]
-[2026-07-18T09:18:10.239188] WARNING  (homeassistant.util.loop) Detected blocking call to load_verify_locations with args (<ssl.SSLContext object at 0xffff59192b10>, '/usr/local/lib/python3.14/site-packages/certifi/cacert.pem', None, None) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs) (offender: /usr/local/lib/python3.14/site-packages/urllib3/util/ssl_.py, line 461: context.load_verify_locations(ca_certs, ca_cert_dir, ca_cert_data)), please create a bug report at https://github.com/custom-components/pyscript/issues
-For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#load_verify_locations
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "/usr/src/homeassistant/homeassistant/__main__.py", line 229, in <module>
-    sys.exit(main())
-  File "/usr/src/homeassistant/homeassistant/__main__.py", line 215, in main
-    exit_code = runner.run(runtime_conf)
-  File "/usr/src/homeassistant/homeassistant/runner.py", line 289, in run
-    return loop.run_until_complete(setup_and_run_hass(runtime_config))
-  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 706, in run_until_complete
-    self.run_forever()
-  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 677, in run_forever
-    self._run_once()
-  File "/usr/local/lib/python3.14/asyncio/base_events.py", line 2046, in _run_once
-    handle._run()
-  File "/usr/local/lib/python3.14/asyncio/events.py", line 94, in _run
-    self._context.run(self._callback, *self._args)
-  File "/config/custom_components/pyscript/function.py", line 448, in run_coro
-    result = await coro
-  File "/config/custom_components/pyscript/trigger.py", line 1395, in do_func_call
-    await ast_ctx.call_func(func, None, **kwargs)
-  File "/config/custom_components/pyscript/eval.py", line 1982, in call_func
-    return await func.call(self, *args, **kwargs)
-  File "/config/custom_components/pyscript/eval.py", line 806, in call
-    val = await self.try_aeval(ast_ctx, arg1)
-  File "/config/custom_components/pyscript/eval.py", line 706, in try_aeval
-    return await ast_ctx.aeval(arg)
-  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
-    val = await getattr(self, name, self.ast_not_implemented)(arg)
-  File "/config/custom_components/pyscript/eval.py", line 1250, in ast_try
-    val = await self.aeval(arg1)
-  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
-    val = await getattr(self, name, self.ast_not_implemented)(arg)
-  File "/config/custom_components/pyscript/eval.py", line 1494, in ast_assign
-    rhs = await self.aeval(arg.value)
-  File "/config/custom_components/pyscript/eval.py", line 946, in aeval
-    val = await getattr(self, name, self.ast_not_implemented)(arg)
-  File "/config/custom_components/pyscript/eval.py", line 1967, in ast_call
-    return await self.call_func(func, func_name, *args, **kwargs)
-  File "/config/custom_components/pyscript/eval.py", line 2018, in call_func
-    return func(*args, **kwargs)
-  [src=util/loop.py:137, count=9]
-[2026-07-18T12:19:41.612675] WARNING  (firebase_messaging.fcmpushclient) Server sent Close message, resetting  [src=runner.py:289, count=1]
-[2026-07-18T20:32:28.337985] ERROR    (homeassistant.components.automation.simulation_presence_auto) Détection mouvement: Simulation présence: Error executing script. Error for call_service at pos 9: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=helpers/script.py:2098, count=12]
-[2026-07-18T20:32:28.343919] ERROR    (homeassistant.components.automation.simulation_presence_auto) Error while executing automation automation.simulation_presence_auto: CastMediaPlayerEntity.media_stop Failed: Failed to execute stop.  [src=components/automation/__init__.py:847, count=5]
-[2026-07-18T21:39:58.785779] ERROR    (homeassistant) Error doing job: Future exception was never retrieved (task: None)  [src=/usr/src/homeassistant/homeassistant/runner.py:238, count=1]
-[2026-07-19T04:06:33.663984] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=6]
-[2026-07-19T04:06:33.685946] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Failed to connect to service HostServiceInfo(host='192.168.1.131', port=8009), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=6]
-[2026-07-19T14:45:00.206915] WARNING  (custom_components.pyscript.file.wireguard_watchdog.wireguard_ha_slave_check) ⚠ tentative 9/9 KO | handshake=OK | ping=PING 172.27.66.3 (172.27.66.3): 56 data bytes
-
---- 172.27.66.3 ping statistics ---
-1 packets transmitted, 0 packets received, 100% packet loss  [src=custom_components/pyscript/eval.py:2018, count=195]
-[2026-07-19T17:01:08.777331] ERROR    (pyhap.hap_handler) HASS Bridge: Client ('fe80::1ca3:af85:63c6:d926', 49941, 0, 2) with uuid c10e30ea-0add-4eb9-928b-0d397c13a548 attempted pair verify without being paired first (public_key=7cda8e835c969a8d5c93f1da984be65e5192310622b75fb890284ff1f62caa54, paired clients={UUID('8db0643e-2d83-4f6e-8fe2-65c346d4f8c7'): '7b5a54d828165a7f6fbcad4a094f32f73d3f8cdd17782453f2c0575d3f04067e', UUID('487e2443-d224-4a99-8d0e-17f757cd57cc'): '802a6c222a6d34fd9549c71f8e935fe9ef9fa555d18afca5c0c24ed1df24cb4e'}).  [src=runner.py:289, count=4]
-[2026-07-19T17:24:58.045274] WARNING  (homeassistant.components.apple_tv) Connection lost to Apple TV "Bureau"  [src=components/apple_tv/__init__.py:152, count=7]
-[2026-07-19T17:25:09.771995] ERROR    (homeassistant.components.apple_tv) Failed to connect  [src=components/apple_tv/__init__.py:224, count=9]
-[2026-07-19T17:25:19.240353] WARNING  (pyatv.support.http) Got response without having a request: HttpResponse(protocol='HTTP', version='1.1', code=200, message='OK', headers={'Date': 'Sun, 19 Jul 2026 14:59:51 GMT', 'Content-Length': '0', 'Server': 'AirTunes/950.7.1', 'X-Apple-ProcessingTime': '5', 'X-Apple-RequestReceivedTimestamp': '1069676979'}, body='')  [src=runner.py:289, count=4]
-[2026-07-19T17:25:25.225159] WARNING  (homeassistant.components.apple_tv) Connection was re-established to device "Bureau"  [src=components/apple_tv/__init__.py:338, count=7]
-[2026-07-19T20:00:00.312331] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=85]
-[2026-07-19T20:22:14.670464] ERROR    (custom_components.pyscript.file.github_logs.handle_pyscript_ghpush) GitHub logs: push FAIL: Caught blocking call to putrequest with args (<HTTPSConnection(host='api.github.com', port=443) at 0xffff59747750>, 'GET', '/repos/Vastiben/pyscript_HA/contents/logs/ha_warnings_errors.log') inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/site-packages/urllib3/connection.py, line 406: return super().putrequest(), please create a bug report at https://github.com/custom-components/pyscript/issues
-For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#putrequest  [src=custom_components/pyscript/eval.py:2018, count=13]
-[2026-07-19T20:39:08.287404] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2277]
-[2026-07-19T20:39:08.289772] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2277]
-[2026-07-19T20:40:21.123896] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KXXSR16N9H34T1860EF5WYCT): message=❌ Erreur test: COOKIE_MISSING, target=[7332342681]>  [src=core.py:2837, count=32]
+  File "/config/custom_components/pyscript/eval.py", line 937, in ast_not_implemented
+    raise NotImplementedError(f"{self.name}: not implemented ast " + name)
+NotImplementedError: file.telegram_commands.router: not implemented ast ast_generatorexp
+  [src=custom_components/pyscript/trigger.py:1397, count=3]
+[2026-07-19T20:51:48.311227] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2281]
+[2026-07-19T20:51:48.313841] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2281]
