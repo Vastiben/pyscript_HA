@@ -23,7 +23,7 @@ def notify(msg, chat=None):
     """Envoie un message Telegram sans parse_mode."""
     data = {"message": str(msg)}
     if chat:
-        data["target"] = chat
+        data["target"] = [int(chat)]
     service.call("telegram_bot", "send_message", **data)
 
 
@@ -35,25 +35,32 @@ def _do_login(username, password):
     """Se connecte à FusionSolar et retourne (cookie, roarand)."""
     import requests as _req
     import hashlib
-    import json
 
     BASE = "https://uni004eu5.fusionsolar.huawei.com"
     s = _req.Session()
     s.headers.update({
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
         "Content-Type": "application/json",
         "X-Requested-With": "XMLHttpRequest",
+        "Origin": BASE,
+        "Referer": BASE + "/unisso/login.action",
+        "Connection": "keep-alive",
     })
 
-    # Étape 1 : récupérer le token CSRF via la page de login
+    # Étape 1 : charger la page de login pour obtenir les cookies de session
+    s.get(BASE + "/unisso/login.action", timeout=20)
+
+    # Étape 2 : récupérer la clé publique
     r0 = s.get(BASE + "/unisso/pubkey.action", timeout=20)
-    pub_data = r0.json() if "json" in r0.headers.get("content-type", "") else {}
-    # FusionSolar attend le mot de passe chiffré (SHA256 base64) ou en clair selon version
-    # On essaie d'abord SHA256 hex
+    pub_ct = r0.headers.get("content-type", "")
+    pub_data = r0.json() if "json" in pub_ct else {}
+
     pwd_hash = hashlib.sha256(password.encode()).hexdigest()
 
-    # Étape 2 : POST login
+    # Étape 3 : POST login
     payload = {
         "organizationName": "",
         "userName": username,
@@ -71,17 +78,15 @@ def _do_login(username, password):
 
     ct = r1.headers.get("content-type", "")
     if "json" not in ct:
-        raise RuntimeError("LOGIN_FAILED: réponse non-JSON -> " + r1.text[:200])
+        raise RuntimeError("LOGIN_FAILED: réponse non-JSON -> " + r1.text[:300])
 
     resp = r1.json()
-    # Vérifie succès
     if not resp.get("success") and resp.get("errorCode"):
         raise RuntimeError("LOGIN_FAILED: " + str(resp.get("errorCode")) + " " + str(resp.get("failCode", "")))
 
-    # Extraire JSESSIONID depuis les cookies
+    # Extraire JSESSIONID
     jsession = s.cookies.get("JSESSIONID", "")
     if not jsession:
-        # Parfois dans le header Set-Cookie directement
         set_cookie = r1.headers.get("Set-Cookie", "")
         for part in set_cookie.split(";"):
             if "JSESSIONID" in part:
@@ -91,7 +96,6 @@ def _do_login(username, password):
     if not jsession:
         raise RuntimeError("LOGIN_FAILED: JSESSIONID introuvable dans les cookies")
 
-    # Roarand : dans les headers de réponse ou dans le body
     roarand = r1.headers.get("Roarand", "") or resp.get("data", {}).get("roarand", "")
 
     cookie_str = "JSESSIONID=" + jsession
@@ -131,8 +135,10 @@ def fetch_data(cookie, roarand):
     s = _req.Session()
     headers = {
         "Cookie": cookie,
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
         "X-Requested-With": "XMLHttpRequest",
+        "Referer": BASE + "/pvmswebsite/assets/build/index.html",
     }
     if roarand:
         headers["Roarand"] = roarand
@@ -214,7 +220,6 @@ def fetch():
     """Utilise le cookie en cache (ou pyscript.config en fallback) pour interroger l'API."""
     global _cookie, _roarand
 
-    # Utilise le cache mémoire en priorité, sinon pyscript.config
     cookie = _cookie or pyscript.config.get("fusionsolar_cookie", "")
     roarand = _roarand or pyscript.config.get("fusionsolar_roarand", "")
 
@@ -227,7 +232,6 @@ def fetch():
         return task.executor(fetch_data, cookie, roarand)
     except RuntimeError as e:
         if "SESSION_EXPIRED" in str(e):
-            # Cookie expiré -> relogin automatique
             log.warning("[FS] Session expirée, tentative de relogin...")
             _login()
             return task.executor(fetch_data, _cookie, _roarand)
@@ -260,7 +264,7 @@ def _update_sensors(m):
         "sensor.fs_soc",
         value=str(m["soc"]),
         new_attributes={
-            "unit_of_measurement": "%",
+            "unit_of_measurement": "kW",
             "friendly_name": "FusionSolar Batterie SOC",
             "device_class": "battery",
             "state_class": "measurement",
