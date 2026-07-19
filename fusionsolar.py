@@ -11,6 +11,10 @@ CONFIG = {
 
 TZ = ZoneInfo(CONFIG["tz"])
 
+# Cache des credentials en mémoire (mis à jour par login)
+_cookie = None
+_roarand = None
+
 
 # =========================
 # TELEGRAM
@@ -21,6 +25,90 @@ def notify(msg, chat=None):
     if chat:
         data["target"] = chat
     service.call("telegram_bot", "send_message", **data)
+
+
+# =========================
+# LOGIN AUTOMATIQUE
+# =========================
+@pyscript_compile
+def _do_login(username, password):
+    """Se connecte à FusionSolar et retourne (cookie, roarand)."""
+    import requests as _req
+    import hashlib
+    import json
+
+    BASE = "https://uni004eu5.fusionsolar.huawei.com"
+    s = _req.Session()
+    s.headers.update({
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+    })
+
+    # Étape 1 : récupérer le token CSRF via la page de login
+    r0 = s.get(BASE + "/unisso/pubkey.action", timeout=20)
+    pub_data = r0.json() if "json" in r0.headers.get("content-type", "") else {}
+    # FusionSolar attend le mot de passe chiffré (SHA256 base64) ou en clair selon version
+    # On essaie d'abord SHA256 hex
+    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    # Étape 2 : POST login
+    payload = {
+        "organizationName": "",
+        "userName": username,
+        "userNameReg": username,
+        "language": "fr_FR",
+        "timeZone": 2,
+        "pwdHash": pwd_hash,
+        "value": pwd_hash,
+    }
+    r1 = s.post(
+        BASE + "/unisso/v2/validateUser.action",
+        json=payload,
+        timeout=20,
+    )
+
+    ct = r1.headers.get("content-type", "")
+    if "json" not in ct:
+        raise RuntimeError("LOGIN_FAILED: réponse non-JSON -> " + r1.text[:200])
+
+    resp = r1.json()
+    # Vérifie succès
+    if not resp.get("success") and resp.get("errorCode"):
+        raise RuntimeError("LOGIN_FAILED: " + str(resp.get("errorCode")) + " " + str(resp.get("failCode", "")))
+
+    # Extraire JSESSIONID depuis les cookies
+    jsession = s.cookies.get("JSESSIONID", "")
+    if not jsession:
+        # Parfois dans le header Set-Cookie directement
+        set_cookie = r1.headers.get("Set-Cookie", "")
+        for part in set_cookie.split(";"):
+            if "JSESSIONID" in part:
+                jsession = part.split("=")[-1].strip()
+                break
+
+    if not jsession:
+        raise RuntimeError("LOGIN_FAILED: JSESSIONID introuvable dans les cookies")
+
+    # Roarand : dans les headers de réponse ou dans le body
+    roarand = r1.headers.get("Roarand", "") or resp.get("data", {}).get("roarand", "")
+
+    cookie_str = "JSESSIONID=" + jsession
+    return cookie_str, roarand
+
+
+def _login():
+    """Wrapper pyscript : lit les credentials, appelle _do_login, met à jour le cache."""
+    global _cookie, _roarand
+    username = pyscript.config.get("fusionsolar_user", "")
+    password = pyscript.config.get("fusionsolar_pw", "")
+    if not username or not password:
+        raise RuntimeError("LOGIN_MISSING_CREDENTIALS -- vérifier configuration.yaml")
+    result = task.executor(_do_login, username, password)
+    _cookie, _roarand = result
+    log.info("[FS] Login OK - nouveau cookie obtenu")
+    return _cookie, _roarand
 
 
 # =========================
@@ -96,11 +184,9 @@ def fetch_data(cookie, roarand):
     charge = float((data.get("chargePower") or [0])[idx])
     discharge = float((data.get("dischargePower") or [0])[idx])
 
-    # Puissance reseau : positif = import, negatif = export
     grid_vals = data.get("buyPower") or data.get("gridPower") or []
     grid = float(grid_vals[idx]) if grid_vals else 0.0
 
-    # SOC : cherche le noeud dont deviceTips contient "SOC"
     nodes = ef.get("data", {}).get("flow", {}).get("nodes", [])
     soc = None
     for n in nodes:
@@ -122,19 +208,30 @@ def fetch_data(cookie, roarand):
 
 
 # =========================
-# WRAPPER
+# WRAPPER FETCH
 # =========================
 def fetch():
-    """Lit les credentials depuis pyscript.config puis interroge l'API."""
-    cookie = pyscript.config.get("fusionsolar_cookie", "")
-    roarand = pyscript.config.get("fusionsolar_roarand", "")
+    """Utilise le cookie en cache (ou pyscript.config en fallback) pour interroger l'API."""
+    global _cookie, _roarand
+
+    # Utilise le cache mémoire en priorité, sinon pyscript.config
+    cookie = _cookie or pyscript.config.get("fusionsolar_cookie", "")
+    roarand = _roarand or pyscript.config.get("fusionsolar_roarand", "")
 
     if not cookie:
         raise RuntimeError(
             "COOKIE_MISSING -- verifier configuration.yaml > pyscript > global_ctx"
         )
 
-    return task.executor(fetch_data, cookie, roarand)
+    try:
+        return task.executor(fetch_data, cookie, roarand)
+    except RuntimeError as e:
+        if "SESSION_EXPIRED" in str(e):
+            # Cookie expiré -> relogin automatique
+            log.warning("[FS] Session expirée, tentative de relogin...")
+            _login()
+            return task.executor(fetch_data, _cookie, _roarand)
+        raise
 
 
 def _update_sensors(m):
@@ -202,6 +299,19 @@ def _update_sensors(m):
 
 
 # =========================
+# AUTO-LOGIN (toutes les 8h)
+# =========================
+@time_trigger("period(now, 8h)")
+def auto_login():
+    """Renouvelle le cookie FusionSolar automatiquement toutes les 8h."""
+    try:
+        _login()
+        log.info("[FS] Auto-login OK")
+    except Exception as e:
+        log.error("[FS][ERR] Auto-login failed: " + str(e))
+
+
+# =========================
 # COMMAND HANDLER
 # =========================
 @event_trigger("fusionsolar_command")
@@ -224,12 +334,21 @@ def handle(**kwargs):
         except Exception as e:
             notify("Erreur test: " + str(e), chat)
 
+    elif action == "login":
+        try:
+            _login()
+            notify("Login FusionSolar OK - nouveau cookie obtenu", chat)
+        except Exception as e:
+            notify("Login FAIL: " + str(e), chat)
+
     elif action == "health":
         lines = ["FusionSolar Health"]
-        ck = pyscript.config.get("fusionsolar_cookie", "")
-        rr = pyscript.config.get("fusionsolar_roarand", "")
+        ck = _cookie or pyscript.config.get("fusionsolar_cookie", "")
+        rr = _roarand or pyscript.config.get("fusionsolar_roarand", "")
+        usr = pyscript.config.get("fusionsolar_user", "")
         lines.append("OK Cookie present" if ck else "FAIL Cookie absent")
         lines.append("OK Roarand present" if rr else "WARN Roarand absent")
+        lines.append("OK Credentials presents" if usr else "WARN fusionsolar_user absent")
         try:
             m = fetch()
             lines.append(
