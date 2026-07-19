@@ -12,15 +12,9 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram en calquant la structure de watchdog_summary.
-
-    Envoie directement via service.call(
-        "telegram_bot", "send_message",
-        target=[chat_id], message=...).
-    """
+    """Envoie un message Telegram."""
     if not chat_id:
         return
-
     service.call(
         "telegram_bot",
         "send_message",
@@ -29,15 +23,12 @@ def _notify(msg, chat_id=None):
     )
 
 
-@pyscript_compile
 def _collect_log_entries():
     """Collecte les entrees system_log et retourne un texte formate."""
     try:
         records = hass.data["system_log"].records
     except Exception as e:
-        log.error(
-            "GitHub logs: impossible de lire system_log: " + str(e)
-        )
+        log.error("GitHub logs: impossible de lire system_log: " + str(e))
         return ""
 
     lines = []
@@ -83,7 +74,7 @@ def _collect_log_entries():
 
 @pyscript_compile
 def _write_local_log_native(path, text):
-    """Ecrit le contenu texte dans un fichier local."""
+    """Ecrit le contenu texte dans un fichier local (fonction native)."""
     from pathlib import Path as _Path
     _Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -92,7 +83,7 @@ def _write_local_log_native(path, text):
 
 @pyscript_compile
 def _push_to_github_native(text, owner, repo, path, token):
-    """Pousse le contenu texte vers GitHub via l'API REST."""
+    """Pousse le contenu texte vers GitHub via l'API REST (fonction native)."""
     import base64 as _b64
     import requests as _req
     from datetime import datetime as _dt
@@ -134,7 +125,7 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
     if action != "push":
         return
 
-    # Collecte les logs
+    # Collecte les logs (pyscript natif — OK dans la boucle)
     text = _collect_log_entries()
 
     if not text.strip():
@@ -142,15 +133,16 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
         _notify("Aucune entree a envoyer.", chat_id)
         return
 
-    # Ecriture locale
+    # Ecriture locale via task.executor (appel bloquant)
     try:
-        _write_local_log_native(LOCAL_LOG_FILE, text)
+        task.executor(_write_local_log_native, LOCAL_LOG_FILE, text)
     except Exception as e:
         log.error("GitHub logs: erreur ecriture locale: " + str(e))
 
-    # Push GitHub
+    # Push GitHub via task.executor (appel HTTP bloquant)
     try:
-        commit_url = _push_to_github_native(
+        commit_url = task.executor(
+            _push_to_github_native,
             text,
             GITHUB_OWNER,
             GITHUB_REPO,
