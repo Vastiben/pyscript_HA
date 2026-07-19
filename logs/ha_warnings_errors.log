@@ -1,4 +1,4 @@
-Snapshot 2026-07-19T21:08:14.122195 -- 50 entree(s) system_log
+Snapshot 2026-07-19T21:10:26.965846 -- 50 entree(s) system_log
 
 [2026-07-15T08:36:30.876572] WARNING  (homeassistant.components.switch) Updating wake_on_lan switch took longer than the scheduled update interval 0:00:30  [src=helpers/entity_platform.py:1114, count=4]
 [2026-07-15T08:56:00.571631] ERROR    (homeassistant.components.hassio.http) Client error on api core/logs/follow request Cannot write to closing transport  [src=components/hassio/http.py:235, count=7]
@@ -102,7 +102,6 @@ Traceback (most recent call last):
 TypeError: Function.service_call() missing 1 required positional argument: 'name'
   [src=custom_components/pyscript/trigger.py:1397, count=2]
 [2026-07-16T14:58:31.930348] WARNING  (custom_components.pyscript.eval) file.wireguard_watchdog.wireguard_ha_slave_check line 35 calls blocking time.sleep(); replaced with asyncio.sleep()  [src=custom_components/pyscript/eval.py:2012, count=65]
-[2026-07-16T15:09:05.094649] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=32]
 [2026-07-16T15:09:48.746226] ERROR    (custom_components.pyscript.file.fusionsolar.handle) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=40]
 [2026-07-16T17:30:01.200419] ERROR    (custom_components.pyscript.file.github_logs.push_ha_warning_error_logs) GitHub logs: impossible de lire /config/home-assistant.log: name 'open' is not defined  [src=custom_components/pyscript/eval.py:2018, count=25]
 [2026-07-16T17:37:01.647058] ERROR    (custom_components.pyscript.file.github_logs.push_ha_warning_error_logs) Exception in <file.github_logs.push_ha_warning_error_logs> line 118:
@@ -412,3 +411,4 @@ Fast-forward
  2 files changed, 244 insertions(+), 152 deletions(-), target=[7332342681]>  [src=core.py:2837, count=36]
 [2026-07-19T21:07:38.340560] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=2286]
 [2026-07-19T21:07:38.343233] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=2286]
+[2026-07-19T21:10:23.227029] ERROR    (custom_components.pyscript.file.fusionsolar.auto) [FS][ERR] Fetch attempt 0 failed: pyscript functions can't be called from task.executor - must be a regular python function  [src=custom_components/pyscript/eval.py:2018, count=33]
