@@ -107,11 +107,15 @@ def parse_args(args):
     """Convertit les args Telegram en string propre.
 
     Les args peuvent arriver comme une liste de tokens mixtes
-    (strings, entiers…) ou comme une string brute. On normalise
-    toujours vers une string stripped.
+    (strings, entiers…) ou comme une string brute.
+    Utilise une boucle explicite : pyscript ne supporte pas
+    les generator expressions (ast_generatorexp).
     """
     if isinstance(args, list):
-        return " ".join(str(x) for x in args).strip()
+        parts = []
+        for x in args:
+            parts.append(str(x))
+        return " ".join(parts).strip()
     if args is None:
         return ""
     return str(args).strip()
