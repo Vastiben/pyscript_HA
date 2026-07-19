@@ -9,8 +9,9 @@ Telegram → telegram_commands → event → app
 Logs: [TG]
 """
 
-from pathlib import Path
 from datetime import datetime
+
+SECRETS_PATH = "/config/secrets.yaml"
 
 CONFIG = {
     "allowed_chat_ids": [],  # optionnel sécurité
@@ -58,14 +59,14 @@ COMMANDS = {
     },
 
     "/fscookie": {
-        "type": "write",
-        "path": "/config/fusionsolar/cookie.txt",
+        "type": "secrets_write",
+        "key": "fusionsolar_cookie",
         "min": 20,
     },
 
     "/fsroarand": {
-        "type": "write",
-        "path": "/config/fusionsolar/roarand.txt",
+        "type": "secrets_write",
+        "key": "fusionsolar_roarand",
     },
 
     "/fsstatus": {"type": "event", "action": "status"},
@@ -85,9 +86,9 @@ COMMANDS = {
     },
 }
 
-ALLOWED_PATHS = {
-    "/config/fusionsolar/cookie.txt",
-    "/config/fusionsolar/roarand.txt",
+ALLOWED_SECRETS_KEYS = {
+    "fusionsolar_cookie",
+    "fusionsolar_roarand",
 }
 
 
@@ -108,12 +109,35 @@ def parse_args(args):
     return str(args or "").strip()
 
 
+@pyscript_compile
+def _write_secret_native(secrets_path, key, value):
+    """Met à jour UNE clé dans secrets.yaml sans toucher aux autres."""
+    import yaml as _yaml
+    from pathlib import Path as _Path
+
+    path = _Path(secrets_path)
+
+    # Lecture du fichier existant
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            data = _yaml.safe_load(f) or {}
+    else:
+        data = {}
+
+    # Mise à jour de la clé — jamais de suppression
+    data[key] = value
+
+    # Réécriture du fichier en préservant toutes les autres clés
+    with open(path, "w", encoding="utf-8") as f:
+        _yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+
+
 # =========================
 # ROUTER
 # =========================
 @event_trigger("telegram_command")
 def router(**kwargs):
-
+    """Route les commandes Telegram vers les bons handlers."""
     dbg(f"RAW: {kwargs}")
 
     cmd = (
@@ -140,25 +164,26 @@ def router(**kwargs):
         notify(HELP_TEXT, chat)
 
     # =====================
-    # WRITE FILE
+    # SECRETS WRITE
     # =====================
-    elif spec["type"] == "write":
+    elif spec["type"] == "secrets_write":
 
         if len(text) < spec.get("min", 0):
             notify("❌ Contenu trop court.", chat)
             return
 
-        path = spec["path"]
+        key = spec["key"]
 
-        if path not in ALLOWED_PATHS:
+        if key not in ALLOWED_SECRETS_KEYS:
             notify("❌ Accès interdit.", chat)
             return
 
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
-        Path(path).write_text(text.strip())
-
-        dbg(f"Fichier écrit: {path}")
-        notify("✅ Enregistré.", chat)
+        try:
+            task.executor(_write_secret_native, SECRETS_PATH, key, text.strip())
+            dbg(f"secrets.yaml mis à jour: {key}")
+            notify("✅ Enregistré dans secrets.yaml.", chat)
+        except Exception as e:
+            notify(f"❌ Erreur écriture secrets.yaml: {e}", chat)
 
     # =====================
     # EVENT
