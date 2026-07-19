@@ -12,7 +12,7 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram sans parse_mode explicite."""
+    """Envoie un message Telegram en texte brut (pas de parsing Markdown)."""
     if not chat_id:
         return
     service.call(
@@ -20,6 +20,7 @@ def _notify(msg, chat_id=None):
         "send_message",
         target=chat_id,
         message=str(msg),
+        parse_mode="plain_text",
     )
 
 
