@@ -14,7 +14,7 @@ from datetime import datetime
 SECRETS_PATH = "/config/secrets.yaml"
 
 CONFIG = {
-    "allowed_chat_ids": [],  # optionnel sécurité
+    "allowed_chat_ids": [],
     "debug": True,
 }
 
@@ -37,7 +37,7 @@ HELP_TEXT = (
     "/fsstatus — statut\n"
     "/fshealth — diagnostic complet\n"
     "/fslogin — forcer un nouveau login\n"
-    "/fstest — test\n"
+    "/fstest — test API\n"
     "/fsreset — reset\n\n"
     "🔧 GitHub / Pyscript\n"
     "/ghpull — récupérer le dernier code GitHub\n"
@@ -54,32 +54,22 @@ COMMANDS = {
     "/help": {"type": "help"},
     "/h":    {"type": "help"},
 
-    "/fshealth": {
-        "type": "event",
-        "action": "health",
-    },
-
-    "/fslogin": {
-        "type": "event",
-        "action": "login",
-    },
+    "/fshealth": {"type": "event", "action": "health"},
+    "/fslogin":  {"type": "event", "action": "login"},
+    "/fsstatus": {"type": "event", "action": "status"},
+    "/fstest":   {"type": "event", "action": "test"},
+    "/fsreset":  {"type": "event", "action": "reset"},
 
     "/fscookie": {
         "type": "secrets_write",
         "key": "fusionsolar_cookie",
         "min": 20,
     },
-
     "/fsroarand": {
         "type": "secrets_write",
         "key": "fusionsolar_roarand",
     },
 
-    "/fsstatus": {"type": "event", "action": "status"},
-    "/fstest":   {"type": "event", "action": "test"},
-    "/fsreset":  {"type": "event", "action": "reset"},
-
-    # === GitHub / Pyscript ===
     "/ghpull": {
         "type": "event",
         "event": "pyscript_ghpull",
@@ -102,7 +92,6 @@ ALLOWED_SECRETS_KEYS = {
 # HELPERS
 # =========================
 def notify(msg, chat_id=None):
-    dbg("Notify -> " + str(msg)[:50])
     data = {"message": str(msg)}
     if chat_id:
         data["target"] = chat_id
@@ -112,8 +101,6 @@ def notify(msg, chat_id=None):
 def parse_args(args):
     """Convertit les args Telegram en string propre.
 
-    Les args peuvent arriver comme une liste de tokens mixtes
-    (strings, entiers…) ou comme une string brute.
     Utilise une boucle explicite : pyscript ne supporte pas
     les generator expressions (ast_generatorexp).
     """
@@ -134,15 +121,12 @@ def _write_secret_native(secrets_path, key, value):
     from pathlib import Path as _Path
 
     path = _Path(secrets_path)
-
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             data = _yaml.safe_load(f) or {}
     else:
         data = {}
-
     data[key] = value
-
     with open(path, "w", encoding="utf-8") as f:
         _yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
 
@@ -153,8 +137,6 @@ def _write_secret_native(secrets_path, key, value):
 @event_trigger("telegram_command")
 def router(**kwargs):
     """Route les commandes Telegram vers les bons handlers."""
-    dbg("RAW: " + str(kwargs))
-
     cmd = (
         (kwargs.get("command") or "")
         .lower()
@@ -164,7 +146,7 @@ def router(**kwargs):
     text = parse_args(kwargs.get("args"))
     chat = kwargs.get("chat_id")
 
-    dbg("CMD=" + cmd + " TEXT_LEN=" + str(len(text)))
+    dbg("CMD=" + cmd)
 
     spec = COMMANDS.get(cmd)
 
@@ -172,44 +154,29 @@ def router(**kwargs):
         notify("❌ Commande inconnue. Tape /help pour la liste.", chat)
         return
 
-    # =====================
     # HELP
-    # =====================
     if spec["type"] == "help":
         notify(HELP_TEXT, chat)
 
-    # =====================
     # SECRETS WRITE
-    # =====================
     elif spec["type"] == "secrets_write":
-
         if len(text) < spec.get("min", 0):
             notify("❌ Contenu trop court.", chat)
             return
-
         key = spec["key"]
-
         if key not in ALLOWED_SECRETS_KEYS:
             notify("❌ Accès interdit.", chat)
             return
-
         try:
-            task.executor(
-                _write_secret_native, SECRETS_PATH, key, text.strip()
-            )
-            dbg("secrets.yaml mis a jour: " + key)
+            task.executor(_write_secret_native, SECRETS_PATH, key, text.strip())
             notify("✅ Enregistré dans secrets.yaml.", chat)
         except Exception as e:
             notify("❌ Erreur écriture secrets.yaml: " + str(e), chat)
 
-    # =====================
     # EVENT
-    # =====================
     elif spec["type"] == "event":
-
         event_name = spec.get("event", "fusionsolar_command")
         dbg("Fire event -> " + event_name + ":" + spec["action"])
-
         event.fire(
             event_name,
             action=spec["action"],
