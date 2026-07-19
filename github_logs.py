@@ -12,7 +12,7 @@ LOCAL_LOG_FILE = "/config/pyscript/logs/ha_warnings_errors.log"
 
 
 def _notify(msg, chat_id=None):
-    """Envoie un message Telegram."""
+    """Envoie un message Telegram en mode texte brut (pas de Markdown)."""
     if not chat_id:
         return
     service.call(
@@ -20,6 +20,7 @@ def _notify(msg, chat_id=None):
         "send_message",
         target=[chat_id],
         message=str(msg),
+        parse_mode="",
     )
 
 
@@ -125,7 +126,6 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
     if action != "push":
         return
 
-    # Collecte les logs (pyscript natif — OK dans la boucle)
     text = _collect_log_entries()
 
     if not text.strip():
@@ -133,13 +133,11 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
         _notify("Aucune entree a envoyer.", chat_id)
         return
 
-    # Ecriture locale via task.executor (appel bloquant)
     try:
         task.executor(_write_local_log_native, LOCAL_LOG_FILE, text)
     except Exception as e:
         log.error("GitHub logs: erreur ecriture locale: " + str(e))
 
-    # Push GitHub via task.executor (appel HTTP bloquant)
     try:
         commit_url = task.executor(
             _push_to_github_native,
@@ -151,12 +149,9 @@ def handle_pyscript_ghpush(action=None, chat_id=None, **kwargs):
         )
         if commit_url:
             log.info("GitHub logs: push OK -> " + commit_url)
-            _notify(
-                "Logs pousses sur GitHub !\n" + commit_url,
-                chat_id,
-            )
+            _notify("Logs pousses sur GitHub !\n" + commit_url, chat_id)
         else:
             _notify("Logs pousses sur GitHub.", chat_id)
     except Exception as e:
         log.error("GitHub logs: push FAIL: " + str(e))
-        _notify("Erreur ghpush :\n" + str(e), chat_id)
+        _notify("Erreur push: " + str(e)[:200], chat_id)
