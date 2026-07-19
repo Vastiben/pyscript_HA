@@ -46,7 +46,7 @@ def _read_secrets_native(path, key_cookie, key_roarand):
 
 @pyscript_compile
 def fetch_data(cookie, roarand):
-    """Interroge l'API FusionSolar, retourne les métriques PV."""
+    """Interroge l'API FusionSolar, retourne les metriques PV."""
     import requests as _req
     from datetime import datetime
     from zoneinfo import ZoneInfo
@@ -114,11 +114,11 @@ def fetch_data(cookie, roarand):
     charge = float((data.get("chargePower") or [0])[idx])
     discharge = float((data.get("dischargePower") or [0])[idx])
 
-    # Puissance réseau : positif = import, négatif = export
+    # Puissance reseau : positif = import, negatif = export
     grid_vals = data.get("buyPower") or data.get("gridPower") or []
     grid = float(grid_vals[idx]) if grid_vals else 0.0
 
-    # SOC : cherche le nœud dont deviceTips contient "SOC"
+    # SOC : cherche le noeud dont deviceTips contient "SOC"
     nodes = ef.get("data", {}).get("flow", {}).get("nodes", [])
     soc = None
     for n in nodes:
@@ -161,36 +161,67 @@ def fetch():
 
 
 def _update_sensors(m):
-    """Écrit les valeurs dans les senseurs pyscript de HA."""
-    sensor.fs_pv = m["pv"]
-    sensor.fs_pv.unit_of_measurement = "kW"
-    sensor.fs_pv.friendly_name = "FusionSolar PV"
-    sensor.fs_pv.device_class = "power"
-
-    sensor.fs_load = m["load"]
-    sensor.fs_load.unit_of_measurement = "kW"
-    sensor.fs_load.friendly_name = "FusionSolar Consommation"
-    sensor.fs_load.device_class = "power"
-
-    sensor.fs_soc = m["soc"]
-    sensor.fs_soc.unit_of_measurement = "%"
-    sensor.fs_soc.friendly_name = "FusionSolar Batterie SOC"
-    sensor.fs_soc.device_class = "battery"
-
-    sensor.fs_charge = m["charge"]
-    sensor.fs_charge.unit_of_measurement = "kW"
-    sensor.fs_charge.friendly_name = "FusionSolar Charge batterie"
-    sensor.fs_charge.device_class = "power"
-
-    sensor.fs_discharge = m["discharge"]
-    sensor.fs_discharge.unit_of_measurement = "kW"
-    sensor.fs_discharge.friendly_name = "FusionSolar Décharge batterie"
-    sensor.fs_discharge.device_class = "power"
-
-    sensor.fs_grid = m["grid"]
-    sensor.fs_grid.unit_of_measurement = "kW"
-    sensor.fs_grid.friendly_name = "FusionSolar Réseau"
-    sensor.fs_grid.device_class = "power"
+    """Ecrit les valeurs dans les senseurs pyscript de HA via state.set()."""
+    state.set(
+        "sensor.fs_pv",
+        value=str(m["pv"]),
+        new_attributes={
+            "unit_of_measurement": "kW",
+            "friendly_name": "FusionSolar PV",
+            "device_class": "power",
+            "state_class": "measurement",
+        },
+    )
+    state.set(
+        "sensor.fs_load",
+        value=str(m["load"]),
+        new_attributes={
+            "unit_of_measurement": "kW",
+            "friendly_name": "FusionSolar Consommation",
+            "device_class": "power",
+            "state_class": "measurement",
+        },
+    )
+    state.set(
+        "sensor.fs_soc",
+        value=str(m["soc"]),
+        new_attributes={
+            "unit_of_measurement": "%",
+            "friendly_name": "FusionSolar Batterie SOC",
+            "device_class": "battery",
+            "state_class": "measurement",
+        },
+    )
+    state.set(
+        "sensor.fs_charge",
+        value=str(m["charge"]),
+        new_attributes={
+            "unit_of_measurement": "kW",
+            "friendly_name": "FusionSolar Charge batterie",
+            "device_class": "power",
+            "state_class": "measurement",
+        },
+    )
+    state.set(
+        "sensor.fs_discharge",
+        value=str(m["discharge"]),
+        new_attributes={
+            "unit_of_measurement": "kW",
+            "friendly_name": "FusionSolar Decharge batterie",
+            "device_class": "power",
+            "state_class": "measurement",
+        },
+    )
+    state.set(
+        "sensor.fs_grid",
+        value=str(m["grid"]),
+        new_attributes={
+            "unit_of_measurement": "kW",
+            "friendly_name": "FusionSolar Reseau",
+            "device_class": "power",
+            "state_class": "measurement",
+        },
+    )
 
 
 # =========================
@@ -198,7 +229,7 @@ def _update_sensors(m):
 # =========================
 @event_trigger("fusionsolar_command")
 def handle(**kwargs):
-    """Gère les commandes FusionSolar envoyées via Telegram."""
+    """Gere les commandes FusionSolar envoyees via Telegram."""
     action = kwargs.get("action")
     chat = kwargs.get("chat_id")
 
@@ -210,7 +241,7 @@ def handle(**kwargs):
                 "FusionSolar OK\n"
                 "PV : " + str(m["pv"]) + " kW\n"
                 "SOC : " + str(m["soc"]) + " %\n"
-                "Réseau : " + str(m["grid"]) + " kW",
+                "Reseau : " + str(m["grid"]) + " kW",
                 chat,
             )
         except Exception as e:
@@ -232,18 +263,14 @@ def handle(**kwargs):
                 "OK Roarand present" if rr else "WARN Roarand absent"
             )
         except Exception as e:
-            lines.append("FAIL secrets.yaml illisible: " + str(e))
+            lines.append("FAIL secrets: " + str(e))
         try:
             m = fetch()
             lines.append(
                 "OK API | PV "
-                + str(m["pv"])
-                + " kW | SOC "
-                + str(m["soc"])
-                + " %"
-                + " | Réseau "
-                + str(m["grid"])
-                + " kW"
+                + str(m["pv"]) + " kW"
+                + " | SOC " + str(m["soc"]) + "%"
+                + " | Reseau " + str(m["grid"]) + " kW"
             )
         except Exception as e:
             lines.append("FAIL API: " + str(e))
@@ -266,16 +293,14 @@ def handle(**kwargs):
 # =========================
 @time_trigger("period(now, 5min)")
 def auto():
-    """Rafraîchit les données FusionSolar et met à jour les senseurs."""
+    """Rafraichit les donnees FusionSolar et met a jour les senseurs."""
     try:
         m = fetch()
         _update_sensors(m)
         log.debug(
-            "[FS] MAJ OK — PV "
-            + str(m["pv"])
-            + " kW | SOC "
-            + str(m["soc"])
-            + " %"
+            "[FS] MAJ OK - PV "
+            + str(m["pv"]) + " kW | SOC "
+            + str(m["soc"]) + "%"
         )
     except Exception as e:
         log.error("[FS][ERR] Fetch failed: " + str(e))
