@@ -32,9 +32,11 @@ def notify(msg, chat=None):
 # =========================
 @pyscript_compile
 def _do_login(username, password):
-    """Se connecte à FusionSolar et retourne (cookie, roarand)."""
+    """Se connecte à FusionSolar et retourne (cookie, roarand).
+    Utilise le chiffrement RSA de la clé publique fournie par /unisso/pubkey.action.
+    """
     import requests as _req
-    import hashlib
+    import base64
 
     BASE = "https://uni004eu5.fusionsolar.huawei.com"
     s = _req.Session()
@@ -53,22 +55,37 @@ def _do_login(username, password):
     # Étape 1 : charger la page de login pour obtenir les cookies de session
     s.get(BASE + "/unisso/login.action", timeout=20)
 
-    # Étape 2 : récupérer la clé publique
+    # Étape 2 : récupérer la clé publique RSA
     r0 = s.get(BASE + "/unisso/pubkey.action", timeout=20)
     pub_ct = r0.headers.get("content-type", "")
     pub_data = r0.json() if "json" in pub_ct else {}
 
-    pwd_hash = hashlib.sha256(password.encode()).hexdigest()
+    # Chiffrement RSA du mot de passe avec la clé publique du serveur
+    pub_key_str = pub_data.get("pubKey", "")
+    if pub_key_str:
+        try:
+            from Crypto.PublicKey import RSA
+            from Crypto.Cipher import PKCS1_v1_5
+            rsa_key = RSA.import_key(pub_key_str)
+            cipher = PKCS1_v1_5.new(rsa_key)
+            encrypted_pwd = base64.b64encode(
+                cipher.encrypt(password.encode("utf-8"))
+            ).decode("utf-8")
+        except Exception:
+            # Fallback : pas de chiffrement si pycryptodome absent
+            encrypted_pwd = password
+    else:
+        encrypted_pwd = password
 
-    # Étape 3 : POST login
+    # Étape 3 : POST login avec le mot de passe chiffré
     payload = {
         "organizationName": "",
         "userName": username,
         "userNameReg": username,
         "language": "fr_FR",
         "timeZone": 2,
-        "pwdHash": pwd_hash,
-        "value": pwd_hash,
+        "password": encrypted_pwd,
+        "value": encrypted_pwd,
     }
     r1 = s.post(
         BASE + "/unisso/v2/validateUser.action",
