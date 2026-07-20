@@ -100,7 +100,7 @@ async def update_sensors():
     publish_sensor("sensor.fs_battery_discharge_capacity", d["battery_discharge_capacity"], "kWh", "mdi:battery-minus")
 
 
-@time_trigger("period(now, 5min)")
+@time_trigger(*/1 * * * *)
 async def auto_update():
     try:
         await update_sensors()
