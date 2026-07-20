@@ -21,6 +21,9 @@ def get_password():
 
 @service
 async def fusionsolar_login_test():
+    log.info("[FusionSolar] service fusionsolar_login_test called")
+    state.set("sensor.fs_login_test", value="started")
+
     user = get_user()
     password = get_password()
 
@@ -37,7 +40,7 @@ async def fusionsolar_login_test():
             "systemCode": password,
         }
 
-        log.info("[FusionSolar] test login start")
+        log.info(f"[FusionSolar] login POST {login_url}")
         async with session.post(login_url, json=body, timeout=30, allow_redirects=True) as resp:
             login_text = await resp.text()
             log.info(f"[FusionSolar] login status={resp.status}")
@@ -47,7 +50,7 @@ async def fusionsolar_login_test():
 
         jar = session.cookie_jar.filter_cookies(BASE)
         cookies = {k: v.value for k, v in jar.items()}
-        log.info(f"[FusionSolar] login cookies={list(cookies.keys())}")
+        log.info(f"[FusionSolar] cookies reçus={list(cookies.keys())}")
 
         flow_url = FLOW_BASE + "/rest/pvms/web/station/v3/overview/energy-flow"
         params = {
@@ -55,27 +58,48 @@ async def fusionsolar_login_test():
             "featureId": "aifc",
         }
 
+        log.info(f"[FusionSolar] flow GET {flow_url} params={params}")
         async with session.get(flow_url, params=params, timeout=30, allow_redirects=True) as resp:
             flow_text = await resp.text()
-            log.info(f"[FusionSolar] flow status={resp.status}")
-            log.info(f"[FusionSolar] flow final_url={resp.url}")
-            log.info(f"[FusionSolar] flow content_type={resp.headers.get('Content-Type', '')}")
+            flow_status = resp.status
+            flow_final_url = str(resp.url)
+            flow_content_type = resp.headers.get("Content-Type", "")
+
+            log.info(f"[FusionSolar] flow status={flow_status}")
+            log.info(f"[FusionSolar] flow final_url={flow_final_url}")
+            log.info(f"[FusionSolar] flow content_type={flow_content_type}")
             log.info(f"[FusionSolar] flow body_head={flow_text[:500]}")
 
-            if "application/json" in resp.headers.get("Content-Type", ""):
+            if "application/json" in flow_content_type:
                 try:
                     data = await resp.json()
+                    has_data = "data" in data
+
                     state.set(
                         "sensor.fs_login_test",
                         value="ok",
                         new_attributes={
                             "login_status": "ok",
-                            "flow_status": resp.status,
-                            "flow_url": str(resp.url),
+                            "flow_status": flow_status,
+                            "flow_url": flow_final_url,
                             "cookie_names": list(cookies.keys()),
-                            "has_data": "data" in data,
+                            "has_data": has_data,
                         },
                     )
+
+                    persistent_notification.create(
+                        title="FusionSolar login test",
+                        message=(
+                            "Succès du test de login direct.\n\n"
+                            f"Login URL finale: {resp.url}\n"
+                            f"Flow status: {flow_status}\n"
+                            f"Flow URL: {flow_final_url}\n"
+                            f"Cookies: {', '.join(cookies.keys()) or 'aucun'}\n"
+                            f"Champ 'data' présent: {has_data}"
+                        ),
+                        notification_id="fusionsolar_login_test",
+                    )
+
                     log.info("[FusionSolar] direct login test OK")
                 except Exception as e:
                     state.set(
@@ -83,8 +107,8 @@ async def fusionsolar_login_test():
                         value="json_error",
                         new_attributes={
                             "error": str(e),
-                            "flow_status": resp.status,
-                            "flow_url": str(resp.url),
+                            "flow_status": flow_status,
+                            "flow_url": flow_final_url,
                             "cookie_names": list(cookies.keys()),
                         },
                     )
@@ -94,9 +118,9 @@ async def fusionsolar_login_test():
                     "sensor.fs_login_test",
                     value="not_json",
                     new_attributes={
-                        "flow_status": resp.status,
-                        "flow_url": str(resp.url),
-                        "content_type": resp.headers.get("Content-Type", ""),
+                        "flow_status": flow_status,
+                        "flow_url": flow_final_url,
+                        "content_type": flow_content_type,
                         "cookie_names": list(cookies.keys()),
                         "body_head": flow_text[:300],
                     },
