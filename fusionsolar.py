@@ -21,10 +21,8 @@ async def get_json(session, path, params):
 
 
 async def get_data():
-    cookie = get_cookie()
-
     headers = {
-        "Cookie": cookie,
+        "Cookie": get_cookie(),
         "User-Agent": "Mozilla/5.0",
         "Accept": "application/json",
     }
@@ -39,70 +37,73 @@ async def get_data():
             },
         )
 
-        nodes = {n["id"]: n for n in flow["data"]["flow"]["nodes"]}
+    flow_data = ((flow or {}).get("data") or {}).get("flow") or {}
+    nodes = {n["id"]: n for n in (flow_data.get("nodes") or []) if "id" in n}
 
-        pv_power = float(nodes["0"]["value"])
-        load_power = float(nodes["5"]["value"])
-        battery_power = float(nodes["4"]["value"])
-        battery_soc = float(nodes["4"]["deviceTips"]["SOC"])
-        battery_charge_capacity = float(nodes["4"]["deviceTips"]["CHARGE_CAPACITY"])
-        battery_discharge_capacity = float(nodes["4"]["deviceTips"]["DISCHARGE_CAPACITY"])
+    pv = nodes.get("0") or {}
+    battery = nodes.get("4") or {}
+    load = nodes.get("5") or {}
+    battery_tips = battery.get("deviceTips") or {}
 
-        grid_import = 0.0
-        
-        links = (((flow or {}).get("data") or {}).get("flow") or {}).get("links") or []
-        
-        for link in links:
-            desc = link.get("description") or {}
-            label = desc.get("label") or ""
-            value = desc.get("value") or ""
-        
-            if "buy.power" in label:
-                try:
-                    grid_import = float(value.replace(" kW", ""))
-                except Exception:
-                    pass
+    pv_power = float(pv.get("value") or 0)
+    load_power = float(load.get("value") or 0)
+    battery_power = float(battery.get("value") or 0)
+    battery_soc = float(battery_tips.get("SOC") or 0)
+    battery_charge_capacity = float(battery_tips.get("CHARGE_CAPACITY") or 0)
+    battery_discharge_capacity = float(battery_tips.get("DISCHARGE_CAPACITY") or 0)
 
-        midnight = datetime.now(TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    grid_import = 0.0
+    for link in flow_data.get("links") or []:
+        desc = link.get("description") or {}
+        label = desc.get("label") or ""
+        value = desc.get("value") or ""
 
-        balance = await get_json(
-            session,
-            "/rest/pvms/web/station/v3/overview/energy-balance",
-            {
-                "stationDn": STATION,
-                "timeDim": 2,
-                "timeZone": 2,
-                "timeZoneStr": "Europe/Zurich",
-                "queryTime": int(midnight.timestamp() * 1000),
-            },
-        )
+        if "buy.power" in label:
+            try:
+                grid_import = float(value.replace(" kW", ""))
+            except Exception:
+                pass
 
-        return {
-            "pv_power": pv_power,
-            "load_power": load_power,
-            "battery_power": battery_power,
-            "battery_soc": battery_soc,
-            "battery_charge_capacity": battery_charge_capacity,
-            "battery_discharge_capacity": battery_discharge_capacity,
-            "grid_import": grid_import,
-            "raw_balance": balance,
-        }
+    return {
+        "pv_power": pv_power,
+        "load_power": load_power,
+        "battery_power": battery_power,
+        "battery_soc": battery_soc,
+        "battery_charge_capacity": battery_charge_capacity,
+        "battery_discharge_capacity": battery_discharge_capacity,
+        "grid_import": grid_import,
+    }
+
+
+def publish_sensor(entity_id, value, unit=None, icon=None):
+    attrs = {
+        "state_class": "measurement",
+    }
+
+    if unit:
+        attrs["unit_of_measurement"] = unit
+    if icon:
+        attrs["icon"] = icon
+
+    state.set(entity_id, value=value, new_attributes=attrs)
 
 
 async def update_sensors():
     d = await get_data()
 
-    state.set("sensor.fs_pv_power", value=str(d["pv_power"]), new_attributes={"unit_of_measurement": "kW"})
-    state.set("sensor.fs_load_power", value=str(d["load_power"]), new_attributes={"unit_of_measurement": "kW"})
-    state.set("sensor.fs_battery_power", value=str(d["battery_power"]), new_attributes={"unit_of_measurement": "kW"})
-    state.set("sensor.fs_battery_soc", value=str(d["battery_soc"]), new_attributes={"unit_of_measurement": "%"})
-    state.set("sensor.fs_grid_import", value=str(d["grid_import"]), new_attributes={"unit_of_measurement": "kW"})
+    publish_sensor("sensor.fs_pv_power", d["pv_power"], "kW", "mdi:solar-power")
+    publish_sensor("sensor.fs_load_power", d["load_power"], "kW", "mdi:home-lightning-bolt")
+    publish_sensor("sensor.fs_battery_power", d["battery_power"], "kW", "mdi:battery-high")
+    publish_sensor("sensor.fs_battery_soc", d["battery_soc"], "%", "mdi:battery")
+    publish_sensor("sensor.fs_grid_import", d["grid_import"], "kW", "mdi:transmission-tower-import")
+    publish_sensor("sensor.fs_battery_charge_capacity", d["battery_charge_capacity"], "kWh", "mdi:battery-plus")
+    publish_sensor("sensor.fs_battery_discharge_capacity", d["battery_discharge_capacity"], "kWh", "mdi:battery-minus")
 
 
 @time_trigger("period(now, 5min)")
 async def auto_update():
     try:
         await update_sensors()
-        log.info("[FusionSolar] update OK")
+        log.info("[FusionSolar] flow update OK")
     except Exception as e:
-        log.error("[FusionSolar] " + str(e))
+        log.error(f"[FusionSolar] {e}")
