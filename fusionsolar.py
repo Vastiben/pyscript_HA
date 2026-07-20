@@ -49,9 +49,14 @@ async def get_data():
         battery_discharge_capacity = float(nodes["4"]["deviceTips"]["DISCHARGE_CAPACITY"])
 
         grid_import = 0.0
-        for link in flow["data"]["flow"]["links"]:
-            label = link.get("description", {}).get("label", "")
-            value = link.get("description", {}).get("value", "")
+        
+        links = (((flow or {}).get("data") or {}).get("flow") or {}).get("links") or []
+        
+        for link in links:
+            desc = link.get("description") or {}
+            label = desc.get("label") or ""
+            value = desc.get("value") or ""
+        
             if "buy.power" in label:
                 try:
                     grid_import = float(value.replace(" kW", ""))
