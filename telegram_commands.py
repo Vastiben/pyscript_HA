@@ -42,6 +42,9 @@ HELP_TEXT = (
     "🔧 GitHub / Pyscript\n"
     "/ghpull — récupérer le dernier code GitHub\n"
     "/ghpush — pousser les logs HA vers GitHub\n\n"
+    "🖥️ Home Assistant\n"
+    "/status — statut système et réseau\n"
+    "/reboot — redémarrer Home Assistant\n\n"
     "ℹ️ Aide\n"
     "/help ou /h — afficher ce message"
 )
@@ -53,7 +56,16 @@ HELP_TEXT = (
 COMMANDS = {
     "/help": {"type": "help"},
     "/h":    {"type": "help"},
-
+        "/status": {
+        "type": "event",
+        "event": "pyscript_system",
+        "action": "status",
+    },
+    "/reboot": {
+        "type": "event",
+        "event": "pyscript_system",
+        "action": "reboot",
+    },
     "/fshealth": {"type": "event", "action": "health"},
     "/fslogin":  {"type": "event", "action": "login"},
     "/fsstatus": {"type": "event", "action": "status"},
