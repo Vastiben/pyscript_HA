@@ -1,4 +1,4 @@
-Snapshot 2026-07-25T07:44:08.563955 -- 9 entree(s) system_log
+Snapshot 2026-07-25T09:15:19.555145 -- 11 entree(s) system_log
 
 [2026-07-25T07:39:55.289807] WARNING  (aiohue.util) Value {'points': [{'color': {'xy': {'x': 0.6188, 'y': 0.2731}}}, {'color': {'xy': {'x': 0.5177, 'y': 0.4388}}}, {'color': {'xy': {'x': 0.1556, 'y': 0.1391}}}, {'color': {'xy': {'x': 0.3019, 'y': 0.6009}}}, {'color': {'xy': {'x': 0.2009, 'y': 0.0707}}}], 'mode': 'random_pixelated', 'points_capable': 5, 'mode_values': ['interpolated_palette', 'interpolated_palette_mirrored', 'random_pixelated', 'segmented_palette'], 'pixel_count': 20} of type <class 'dict'> is invalid for Light.gradient, expected value of type aiohue.v2.models.feature.GradientFeature | None  [src=runner.py:289, count=1]
 [2026-07-25T07:39:56.771463] ERROR    (homeassistant.setup) The 'downloader' integration does not support YAML setup, please remove it from your configuration  [src=setup.py:372, count=1]
@@ -6,6 +6,19 @@ Snapshot 2026-07-25T07:44:08.563955 -- 9 entree(s) system_log
 [2026-07-25T07:40:14.788999] WARNING  (homeassistant.components.media_player) Platform songpal not ready yet; Retrying in background in 30 seconds  [src=helpers/entity_platform.py:470, count=1]
 [2026-07-25T07:40:15.658435] ERROR    (homeassistant.core) Error running job: <Job listen homeassistant_start HassJobType.Callback <function _async_setup_entity_restore.<locals>._write_unavailable_states at 0xffffacd954e0>>  [src=core.py:1540, count=1]
 [2026-07-25T07:40:17.585319] WARNING  (homeassistant.components.homekit) The bridge Cabanon Live view has entity camera.terrasse_live_view. For best performance, and to prevent unexpected unavailability, create and pair a separate HomeKit instance in accessory mode for this entity  [src=components/homekit/__init__.py:745, count=2]
-[2026-07-25T07:43:17.245585] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=4]
-[2026-07-25T07:43:17.247716] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=4]
-[2026-07-25T07:44:00.229357] ERROR    (custom_components.pyscript.file.fusionsolar.auto_update) [FusionSolar] 200, message='Attempt to decode JSON with unexpected mimetype: text/html;charset=utf-8', url='https://eu5.fusionsolar.huawei.com/unisso/login.action'  [src=custom_components/pyscript/eval.py:2018, count=4]
+[2026-07-25T08:41:07.886980] ERROR    (frontend.js.modern.202603040) Uncaught error from Edge 150.0.4078.65 on iOS 26.5.2
+TypeError: undefined is not an object (evaluating 'this.hass.localize')
+load (src/components/ha-yaml-editor.ts:171:32)
+this (node_modules/lit-html/src/lit-html.ts:2114:33)
+dispatchEvent ([native code]::)
+event (src/common/dom/fire_event.ts:75:21)
+redoDepth (src/components/ha-code-editor.ts:814:14)
+update (node_modules/@codemirror/view/dist/index.js:7895:29)
+trs (node_modules/@codemirror/view/dist/index.js:7799:34)
+state (node_modules/@codemirror/commands/dist/index.js:1171:20)
+view (node_modules/@codemirror/view/dist/index.js:9017:28)
+scopeObj (node_modules/@codemirror/view/dist/index.js:9033:19)  [src=components/system_log/__init__.py:331, count=2]
+[2026-07-25T09:00:00.392787] WARNING  (homeassistant.helpers.service) Referenced entities input_number.body_energy_bastien are missing or not currently available  [src=helpers/target.py:143, count=3]
+[2026-07-25T09:13:37.418661] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=33]
+[2026-07-25T09:13:37.421468] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=33]
+[2026-07-25T09:15:00.491114] ERROR    (custom_components.pyscript.file.fusionsolar.auto_update) [FusionSolar] 200, message='Attempt to decode JSON with unexpected mimetype: text/html;charset=utf-8', url='https://eu5.fusionsolar.huawei.com/unisso/login.action'  [src=custom_components/pyscript/eval.py:2018, count=95]
