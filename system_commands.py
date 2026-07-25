@@ -1,173 +1,172 @@
-"""
-🔹 System Commands App
-🔹 Reçoit les events depuis telegram_commands.py
-🔹 Fournit /status et /reboot
-
-Architecture:
-Telegram → telegram_commands → pyscript_system → app
-
-Logs: [SYS]
-"""
-
 from datetime import datetime
+import socket
+import subprocess
 
+# =========================================================
+# CONFIG - A ADAPTER PROGRESSIVEMENT
+# =========================================================
 
-CONFIG = {
-    "debug": True,
+# Entités très probables / génériques
+CORE_ENTITIES = {
+    "Home Assistant": [
+        ("Version", "sensor.current_version"),
+        ("Dernier boot", "sensor.last_boot"),
+    ],
+    "Système": [
+        ("CPU %", "sensor.processor_use"),
+        ("RAM %", "sensor.memory_use_percent"),
+        ("Disque %", "sensor.disk_use_percent"),
+        ("Temp CPU", "sensor.processor_temperature"),
+    ],
 }
 
+# Mets ici TES entités réellement utiles
+CUSTOM_ENTITIES = {
+    "Réseau": [
+        ("HA secours", "binary_sensor.ping_ha_slave"),
+        ("Routeur", "binary_sensor.ping_router"),
+        ("Internet", "binary_sensor.ping_internet"),
+    ],
+    "Services": [
+        ("MQTT", "binary_sensor.mqtt_connected"),
+        ("ESPHome", "binary_sensor.esphome_status"),
+    ],
+}
 
-def dbg(msg):
-    if CONFIG["debug"]:
-        log.info("[SYS] " + str(msg))
+# Cibles réseau "texte" pour contrôle brut
+NETWORK_TARGETS = [
+    ("HA principal", "192.168.1.121"),
+    ("HA secours", "192.168.1.139"),
+    ("WG serveur", "172.27.66.1"),
+]
 
+# Interfaces possibles selon plateforme
+IP_CANDIDATES = [
+    "sensor.ipv4_address_end0",
+    "sensor.ipv4_address_eth0",
+    "sensor.ipv4_address_wlan0",
+]
 
-def notify(msg, chat_id=None):
-    data = {"message": str(msg)}
-    if chat_id:
-        data["target"] = chat_id
-    service.call("telegram_bot", "send_message", **data)
+# =========================================================
+# HELPERS
+# =========================================================
 
-
-def _safe_get(entity_id, default="n/a"):
+def _safe_state(entity_id, default="n/a"):
     try:
-        value = state.get(entity_id)
-        if value in [None, "", "unknown", "unavailable"]:
+        val = state.get(entity_id)
+        if val in [None, "unknown", "unavailable", "None", "none", ""]:
             return default
-        return str(value)
+        return str(val)
     except Exception:
         return default
 
+def _first_existing_state(entity_ids, default="n/a"):
+    for ent in entity_ids:
+        val = _safe_state(ent, default=None)
+        if val not in [None, "unknown", "unavailable", "None", "none", ""]:
+            return val
+    return default
 
-@pyscript_compile
-def _gather_system_info():
-    import socket
-    import subprocess
-
-    out = {
-        "hostname": "n/a",
-        "local_ip": "n/a",
-        "ip_brief": "n/a",
-        "ip_route": "n/a",
-        "wg_show": "n/a",
-        "uptime": "n/a",
-    }
-
+def _run_cmd(cmd, timeout=4):
     try:
-        out["hostname"] = socket.gethostname()
-    except Exception:
-        pass
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        out = (res.stdout or res.stderr or "").strip()
+        return out if out else "n/a"
+    except Exception as e:
+        return f"err: {e}"
 
+def _hostname():
+    try:
+        return socket.gethostname()
+    except Exception:
+        return "n/a"
+
+def _local_ip_fallback():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        out["local_ip"] = s.getsockname()[0]
+        s.connect(("1.1.1.1", 80))
+        ip = s.getsockname()[0]
         s.close()
+        return ip
     except Exception:
-        try:
-            out["local_ip"] = socket.gethostbyname(socket.gethostname())
-        except Exception:
-            pass
+        return "n/a"
 
-    try:
-        res = subprocess.run(
-            ["ip", "-brief", "address"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        txt = (res.stdout or res.stderr or "").strip()
-        if txt:
-            out["ip_brief"] = txt
-    except Exception as e:
-        out["ip_brief"] = "err: " + str(e)
+def _local_ip():
+    ip = _first_existing_state(IP_CANDIDATES, default=None)
+    return ip if ip else _local_ip_fallback()
 
-    try:
-        res = subprocess.run(
-            ["ip", "route"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        txt = (res.stdout or res.stderr or "").strip()
-        if txt:
-            out["ip_route"] = txt
-    except Exception as e:
-        out["ip_route"] = "err: " + str(e)
+def _uptime():
+    return _run_cmd(["uptime", "-p"], timeout=4)
 
-    try:
-        res = subprocess.run(
-            ["wg", "show"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        txt = (res.stdout or res.stderr or "").strip()
-        if txt:
-            out["wg_show"] = txt
-    except Exception as e:
-        out["wg_show"] = "err: " + str(e)
+def _ping_host(host):
+    out = _run_cmd(["ping", "-c", "1", "-W", "1", host], timeout=3)
+    if out.startswith("err:"):
+        return "n/a"
+    return "OK" if "1 received" in out or "1 packets received" in out else "KO"
 
-    try:
-        res = subprocess.run(
-            ["uptime", "-p"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        txt = (res.stdout or res.stderr or "").strip()
-        if txt:
-            out["uptime"] = txt
-    except Exception as e:
-        out["uptime"] = "err: " + str(e)
-
+def _wg_summary():
+    out = _run_cmd(["wg", "show"], timeout=4)
+    if len(out) > 1200:
+        out = out[:1200] + "\n..."
     return out
 
+def _format_entity_block(block_name, items):
+    lines = [f"{block_name}"]
+    for label, entity_id in items:
+        lines.append(f"- {label}: {_safe_state(entity_id)}")
+    return lines
 
-@event_trigger("pyscript_system")
-def pyscript_system_router(action=None, chat_id=None, text=None, ts=None, **kwargs):
-    dbg("event reçu action=" + str(action))
+def _build_status_message():
+    lines = []
+    lines.append("📡 HA Status")
+    lines.append(f"🕒 Heure: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+    lines.append(f"🖥️ Hostname: {_hostname()}")
+    lines.append(f"🏠 IP locale: {_local_ip()}")
+    lines.append(f"⏱️ Uptime: {_uptime()}")
+    lines.append("")
 
-    if action == "status":
-        now = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    for section, items in CORE_ENTITIES.items():
+        lines.extend(_format_entity_block(section, items))
+        lines.append("")
 
-        sysinfo = task.executor(_gather_system_info)
+    for section, items in CUSTOM_ENTITIES.items():
+        lines.extend(_format_entity_block(section, items))
+        lines.append("")
 
-        version = _safe_get("sensor.current_version")
-        last_boot = _safe_get("sensor.last_boot")
-        cpu = _safe_get("sensor.processor_use")
-        mem = _safe_get("sensor.memory_use_percent")
-        disk = _safe_get("sensor.disk_use_percent")
-        cpu_temp = _safe_get("sensor.processor_temperature")
-        ext_ip = _safe_get("sensor.myip")
-        ha_uptime = _safe_get("sensor.uptime")
+    lines.append("Tests réseau")
+    for label, host in NETWORK_TARGETS:
+        lines.append(f"- {label} ({host}): {_ping_host(host)}")
+    lines.append("")
 
-        msg = (
-            "📡 HA Status\n"
-            f"🕒 Heure: {now}\n"
-            f"🖥️ Hostname: {sysinfo['hostname']}\n"
-            f"🏠 IP locale: {sysinfo['local_ip']}\n"
-            f"⏱️ Uptime OS: {sysinfo['uptime']}\n"
-            f"🔄 Dernier boot: {last_boot}\n"
-            f"🧩 Uptime HA: {ha_uptime}\n"
-            f"🏷️ Version HA: {version}\n"
-            f"🌍 IP publique: {ext_ip}\n"
-            f"🧠 CPU: {cpu}%\n"
-            f"💾 RAM: {mem}%\n"
-            f"🗄️ Disk: {disk}%\n"
-            f"🌡️ CPU temp: {cpu_temp}\n\n"
-            f"📶 Interfaces:\n{sysinfo['ip_brief'][:1000]}\n\n"
-            f"🛣️ Routes:\n{sysinfo['ip_route'][:700]}\n\n"
-            f"🔐 WireGuard:\n{sysinfo['wg_show'][:1200]}"
-        )
+    lines.append("WireGuard")
+    lines.append(_wg_summary())
 
-        notify(msg, chat_id)
-        return
+    msg = "\n".join(lines)
+    if len(msg) > 3800:
+        msg = msg[:3800] + "\n..."
+    return msg
 
-    if action == "reboot":
-        notify("♻️ Commande /reboot reçue. Redémarrage de Home Assistant en cours...", chat_id)
-        task.sleep(2)
-        service.call("homeassistant", "restart")
-        return
+# =========================================================
+# TELEGRAM COMMANDS
+# =========================================================
 
-    notify("❌ Action système inconnue: " + str(action), chat_id)
+@event_trigger("telegram_command", "command == '/status'")
+def telegram_status(command=None, chat_id=None, user_id=None, args=None, **kwargs):
+    msg = _build_status_message()
+    service.call(
+        "telegram_bot",
+        "send_message",
+        target=chat_id,
+        message=msg
+    )
+
+@event_trigger("telegram_command", "command == '/reboot'")
+def telegram_reboot(command=None, chat_id=None, user_id=None, args=None, **kwargs):
+    service.call(
+        "telegram_bot",
+        "send_message",
+        target=chat_id,
+        message="♻️ Commande /reboot reçue. Redémarrage de Home Assistant en cours..."
+    )
+    task.sleep(2)
+    service.call("homeassistant", "restart")
