@@ -12,4 +12,5 @@ Importe tous les modules contenant des triggers.
 #from solar.fusionsolar import *
 #from solar.health import *
 
-from github_sync import *
+from github_sync.pull import *
+from github_sync.github_logs.py import *
