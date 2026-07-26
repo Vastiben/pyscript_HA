@@ -1,4 +1,4 @@
-Snapshot 2026-07-26T18:27:27.588217 -- 38 entree(s) system_log
+Snapshot 2026-07-26T18:39:58.851041 -- 38 entree(s) system_log
 
 [2026-07-25T21:05:46.006656] ERROR    (homeassistant.setup) The 'downloader' integration does not support YAML setup, please remove it from your configuration  [src=setup.py:372, count=1]
 [2026-07-25T21:05:47.339224] WARNING  (aiohue.util) Value {'points': [{'color': {'xy': {'x': 0.6188, 'y': 0.2731}}}, {'color': {'xy': {'x': 0.5177, 'y': 0.4388}}}, {'color': {'xy': {'x': 0.1556, 'y': 0.1391}}}, {'color': {'xy': {'x': 0.3019, 'y': 0.6009}}}, {'color': {'xy': {'x': 0.2009, 'y': 0.0707}}}], 'mode': 'random_pixelated', 'points_capable': 5, 'mode_values': ['interpolated_palette', 'interpolated_palette_mirrored', 'random_pixelated', 'segmented_palette'], 'pixel_count': 20} of type <class 'dict'> is invalid for Light.gradient, expected value of type aiohue.v2.models.feature.GradientFeature | None  [src=runner.py:289, count=1]
@@ -94,15 +94,6 @@ Traceback (most recent call last):
   File "/config/custom_components/pyscript/eval.py", line 2018, in call_func
     return func(*args, **kwargs)
   [src=util/loop.py:137, count=1]
-[2026-07-25T23:00:00.478900] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KYDH7S4BTEE9HDD0T51C8JFV): target=[7332342681], message=📊 *Résumé Watchdog* — 25.07.2026 23:00
-
-❌ *WireGuard → ha-slave*
-  État: `down` | 25.07.2026 23:00:00
-  handshake=KO (erreur supervisor: Caught blocking call to sleep with args (0.001,) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/subprocess.py, line 2077: time.sleep(delay)), please create a bug report at https://github.com/custom-components/pyscript/issues
-For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#sleep) | transfer=KO (erreur supervisor: Caught blocking call to sleep with args (0.001,) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/subprocess.py, line 2077: time.sleep(delay)), please create a bug report at https://github.com/custom-components/pyscript/issues
-For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#sleep)
-
-⚠️ Problème(s) détecté(s)>  [src=core.py:2837, count=1]
 [2026-07-26T04:12:39.687239] ERROR    (pychromecast.socket_client) [TV-Box 1(192.168.1.131):8009] Error reading from socket: socket connection broken  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:624, count=1]
 [2026-07-26T04:12:39.704985] ERROR    (pychromecast.socket_client) [R410-69299c(192.168.1.103):8009] Failed to connect to service MDNSServiceInfo(name='R410-c5484cd1bea0acff1d826da8c1d37269._googlecast._tcp.local.'), retrying in 5.0s  [src=/usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:416, count=3]
 [2026-07-26T07:31:53.816343] ERROR    (frontend.js.modern.202603040) Uncaught error from Mobile Safari 26.5.2 on iOS 18.7
@@ -131,8 +122,17 @@ null
 [2026-07-26T18:10:00.343406] WARNING  (custom_components.pyscript.file.wireguard_watchdog.wireguard_ha_slave_check) ⚠ tentative 1/9 KO | handshake=KO (erreur supervisor: Caught blocking call to sleep with args (0.001,) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/subprocess.py, line 2077: time.sleep(delay)), please create a bug report at https://github.com/custom-components/pyscript/issues
 For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#sleep) | transfer=KO (erreur supervisor: Caught blocking call to sleep with args (0.001,) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/subprocess.py, line 2077: time.sleep(delay)), please create a bug report at https://github.com/custom-components/pyscript/issues
 For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#sleep)  [src=custom_components/pyscript/eval.py:2018, count=24]
-[2026-07-26T18:26:21.155180] ERROR    (custom_components.pyscript.file.bootstrap) Exception in </config/pyscript/bootstrap.py> line 15:
-    from github_sync.pull import *
+[2026-07-26T18:32:42.996585] ERROR    (homeassistant.core) Error executing service: <ServiceCall telegram_bot.send_message (c:01KYDH7S4BTEE9HDD0T51C8JFV): target=[7332342681], message=📊 *Résumé Watchdog* — 25.07.2026 23:00
+
+❌ *WireGuard → ha-slave*
+  État: `down` | 25.07.2026 23:00:00
+  handshake=KO (erreur supervisor: Caught blocking call to sleep with args (0.001,) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/subprocess.py, line 2077: time.sleep(delay)), please create a bug report at https://github.com/custom-components/pyscript/issues
+For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#sleep) | transfer=KO (erreur supervisor: Caught blocking call to sleep with args (0.001,) inside the event loop by custom integration 'pyscript' at custom_components/pyscript/eval.py, line 2018: return func(*args, **kwargs). (offender: /usr/local/lib/python3.14/subprocess.py, line 2077: time.sleep(delay)), please create a bug report at https://github.com/custom-components/pyscript/issues
+For developers, please see https://developers.home-assistant.io/docs/asyncio_blocking_operations/#sleep)
+
+⚠️ Problème(s) détecté(s)>  [src=core.py:2837, count=2]
+[2026-07-26T18:37:06.537571] ERROR    (custom_components.pyscript.file.bootstrap) Exception in </config/pyscript/bootstrap.py> line 15:
+    from github_sync import *
     ^
 ModuleNotFoundError: No module named 'github_sync'
 Traceback (most recent call last):
@@ -153,13 +153,9 @@ Traceback (most recent call last):
            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
   File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
-  File "<frozen importlib._bootstrap>", line 1314, in _find_and_load_unlocked
-  File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
-  File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
-  File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
   File "<frozen importlib._bootstrap>", line 1335, in _find_and_load_unlocked
 ModuleNotFoundError: No module named 'github_sync'
-  [src=custom_components/pyscript/global_ctx.py:341, count=21]
-[2026-07-26T18:26:39.981048] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=406]
-[2026-07-26T18:26:39.984044] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=406]
-[2026-07-26T18:27:00.219350] ERROR    (custom_components.pyscript.file.fusionsolar.auto_update) [FusionSolar] 200, message='Attempt to decode JSON with unexpected mimetype: text/html;charset=utf-8', url='https://eu5.fusionsolar.huawei.com/unisso/login.action'  [src=custom_components/pyscript/eval.py:2018, count=1275]
+  [src=custom_components/pyscript/global_ctx.py:341, count=22]
+[2026-07-26T18:39:00.234855] ERROR    (custom_components.pyscript.file.fusionsolar.auto_update) [FusionSolar] 200, message='Attempt to decode JSON with unexpected mimetype: text/html;charset=utf-8', url='https://eu5.fusionsolar.huawei.com/unisso/login.action'  [src=custom_components/pyscript/eval.py:2018, count=1287]
+[2026-07-26T18:39:20.004810] WARNING  (homeassistant.components.media_player) Setup of media_player platform songpal is taking over 10 seconds.  [src=runner.py:289, count=410]
+[2026-07-26T18:39:20.008950] WARNING  (homeassistant.components.songpal.media_player) [HT-ST5000 058ED6(http://192.168.68.124:10000/sony)] Unable to connect  [src=components/songpal/media_player.py:77, count=410]
