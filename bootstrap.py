@@ -9,6 +9,7 @@ from github_sync.github_logs import *
 
 from infrastructure.system_commands import *
 from infrastructure.telegram_commands import *
-from infrastructure.watchdogs import *
+from infrastructure.watchdog import *
+from infrastructure.watchdog_summary import *
 from infrastructure.wireguard_watchdog import *
 
