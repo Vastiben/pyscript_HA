@@ -5,3 +5,4 @@ Importe tous les modules contenant des triggers.
 
 
 from github_sync import *
+from infrastructure import *
