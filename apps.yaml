@@ -1,14 +1,31 @@
-# Configuration pyscript
-# autoload: false → pyscript ne recharge plus HA automatiquement quand un fichier change
-# Le git pull récupère les fichiers mais le reload doit être fait manuellement
-# (Paramètres → Intégrations → pyscript → Recharger)
+###############################################################################
+# Configuration globale Pyscript
+###############################################################################
+
 pyscript:
   autoload: false
   allow_all_imports: true
   hass_is_global: true
 
+###############################################################################
+# Configuration des applications
+###############################################################################
+
 apps:
+
+  # Résumé du sommeil
   sleep_summary:
     persist_state: true
+
+  # FusionSolar
   fusionsolar:
     persist_state: false
+
+###############################################################################
+# Le chargement des modules est centralisé dans bootstrap.py
+#
+# Pour ajouter un nouveau projet :
+#   1. Créer le dossier/module
+#   2. L'importer dans bootstrap.py
+#   3. Ajouter ici uniquement les paramètres de configuration éventuels
+###############################################################################
