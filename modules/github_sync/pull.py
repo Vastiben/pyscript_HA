@@ -10,7 +10,7 @@ def _notify(msg, chat_id=None):
     """
     data = {"message": str(msg)}
     if chat_id:
-        data["target"] = [chat_id]
+        data["chat_id"] = [chat_id]
     service.call("telegram_bot", "send_message", **data)
 
 
