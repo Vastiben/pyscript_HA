@@ -156,7 +156,7 @@ def telegram_status(command=None, chat_id=None, user_id=None, args=None, **kwarg
     service.call(
         "telegram_bot",
         "send_message",
-        target=chat_id,
+        chat_id=chat_id,
         message=msg
     )
 
@@ -165,7 +165,7 @@ def telegram_reboot(command=None, chat_id=None, user_id=None, args=None, **kwarg
     service.call(
         "telegram_bot",
         "send_message",
-        target=chat_id,
+        chat_id=chat_id,
         message="♻️ Commande /reboot reçue. Redémarrage de Home Assistant en cours..."
     )
     task.sleep(2)
