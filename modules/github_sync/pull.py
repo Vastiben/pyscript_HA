@@ -2,15 +2,15 @@ import subprocess
 from datetime import datetime
 
 
-def _notify(msg, chat_id=None):
+def _notify(msg, entity_id=None):
     """Envoie un message Telegram en mode texte pur.
 
-    Calqué sur watchdog_summary: utilise target=[chat_id] et
+    Calqué sur watchdog_summary: utilise entity_id=[chat_id] et
     laisse le parse_mode par défaut de l'intégration Telegram.
     """
     data = {"message": str(msg)}
     if chat_id:
-        data["chat_id"] = [chat_id]
+        data["entity_id"] = [chat_id]
     service.call("telegram_bot", "send_message", **data)
 
 
