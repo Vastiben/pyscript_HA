@@ -104,7 +104,6 @@ def _send_telegram(message):
     service.call(
         "telegram_bot",
         "send_message",
-        chat_id=none,
         message=message
     )
 
