@@ -5,11 +5,11 @@ from open_meteo_solar_forecast import OpenMeteoSolarForecast
 
 TIMEZONE = "Europe/Zurich"
 
-LATITUDE = 46.46
-LONGITUDE = 6.84
-DECLINATION = 35
-AZIMUTH = 180
-DC_KWP = 9.6
+LATITUDE = 46.524288
+LONGITUDE = 6.906411
+DECLINATION = 30, 30
+AZIMUTH = 34, -146
+DC_KWP = 8550, 4500
 
 ENTITY_ID = "sensor.solar_forecast_24h_fixed"
 
