@@ -106,7 +106,7 @@ def _send_summary(all_ok, notif_text, telegram_text):
     service.call(
         "telegram_bot",
         "send_message",
-        target=[TELEGRAM_CHAT_ID],
+        chat_id=[TELEGRAM_CHAT_ID],
         message=telegram_text
     )
 
