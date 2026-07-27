@@ -11,8 +11,7 @@ DECLINATION = 35
 AZIMUTH = 180
 DC_KWP = 9.6
 
-SENSOR_PREFIX = "sensor.solar_forecast_tomorrow_h"
-SUMMARY_SENSOR = "sensor.solar_forecast_tomorrow_summary"
+ENTITY_ID = "sensor.solar_forecast_24h_fixed"
 
 
 def _safe_float(value, default=0.0):
@@ -32,19 +31,15 @@ async def _get_estimate():
         azimuth=AZIMUTH,
         dc_kwp=DC_KWP,
     ) as forecast:
-        estimate = await forecast.estimate()
-    return estimate
+        return await forecast.estimate()
 
 
-def _build_hourly_forecast_from_watts(estimate, tz):
+def _build_forecast_24h(estimate, tz):
     tomorrow = (datetime.now(tz) + timedelta(days=1)).date()
-
     hourly_sum = {}
     hourly_count = {}
 
-    watts_map = estimate.watts
-
-    for dt_obj, watt_value in watts_map.items():
+    for dt_obj, watt_value in estimate.watts.items():
         if dt_obj is None:
             continue
 
@@ -66,7 +61,8 @@ def _build_hourly_forecast_from_watts(estimate, tz):
         hourly_sum[hour] = hourly_sum[hour] + watt
         hourly_count[hour] = hourly_count[hour] + 1
 
-    result = []
+    forecast = []
+    total_power = 0.0
 
     for hour in range(24):
         dt_hour = datetime(
@@ -83,60 +79,45 @@ def _build_hourly_forecast_from_watts(estimate, tz):
         if hour in hourly_sum and hourly_count[hour] > 0:
             power = hourly_sum[hour] / hourly_count[hour]
 
-        result.append(
+        power = round(power, 1)
+        total_power = total_power + power
+
+        forecast.append(
             {
                 "datetime": dt_hour.isoformat(),
                 "hour": hour,
-                "power": round(power, 1),
+                "power": power,
             }
         )
 
-    return result
+    return forecast, round(total_power, 1)
 
 
-@time_trigger("cron(0 18 * * *)")
+@time_trigger("cron(0 22 * * *)")
 @time_trigger("startup")
-async def update_solar_forecast_tomorrow():
+async def update_solar_forecast_24h_fixed():
     try:
         tz = ZoneInfo(TIMEZONE)
         estimate = await _get_estimate()
-        forecast_24h = _build_hourly_forecast_from_watts(estimate, tz)
-
-        total_power = 0.0
-        for item in forecast_24h:
-            total_power = total_power + _safe_float(item["power"], 0.0)
-
-        for item in forecast_24h:
-            entity_id = f"{SENSOR_PREFIX}{item['hour']:02d}"
-            state.set(
-                entity_id,
-                value=item["power"],
-                new_attributes={
-                    "friendly_name": f"Prévision solaire demain {item['hour']:02d}h",
-                    "unit_of_measurement": "W",
-                    "device_class": "power",
-                    "state_class": "measurement",
-                    "forecast_datetime": item["datetime"],
-                    "forecast_day": "tomorrow",
-                    "source": "open-meteo-solar-forecast",
-                    "updated_at": datetime.now(tz).isoformat(),
-                },
-            )
+        forecast_24h, total_power = _build_forecast_24h(estimate, tz)
 
         state.set(
-            SUMMARY_SENSOR,
-            value=round(total_power, 1),
+            ENTITY_ID,
+            value=total_power,
             new_attributes={
-                "friendly_name": "Prévision solaire demain résumé",
-                "forecast_day": "tomorrow",
-                "points_count": len(forecast_24h),
+                "friendly_name": "Prévision solaire 24h figée",
+                "unit_of_measurement": "W",
+                "device_class": "power",
+                "state_class": "measurement",
                 "forecast": forecast_24h,
-                "source": "open-meteo-solar-forecast",
+                "forecast_day": (datetime.now(tz) + timedelta(days=1)).date().isoformat(),
                 "updated_at": datetime.now(tz).isoformat(),
+                "source": "open-meteo-solar-forecast",
+                "points_count": len(forecast_24h),
             },
         )
 
-        log.info("solar_forecast_tomorrow updated successfully")
+        log.info("solar_forecast_24h_fixed updated successfully")
 
     except Exception as err:
-        log.error(f"solar_forecast_tomorrow failed: {err}")
+        log.error(f"solar_forecast_24h_fixed failed: {err}")
