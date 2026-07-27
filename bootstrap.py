@@ -14,5 +14,6 @@ from infrastructure.watchdog_summary import *
 from infrastructure.wireguard_watchdog import *
 
 from EMS.forecast_tomorrow_24h import *
+from EMS.forecast_temperature_24h import *
 
 
