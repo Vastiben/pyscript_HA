@@ -13,3 +13,6 @@ from infrastructure.watchdog import *
 from infrastructure.watchdog_summary import *
 from infrastructure.wireguard_watchdog import *
 
+from EMS.forecast_tomorrow_24h import *
+
+
