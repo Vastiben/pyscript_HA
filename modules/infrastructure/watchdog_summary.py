@@ -8,7 +8,6 @@ from datetime import datetime
 
 # ── Paramètres ───────────────────────────────────────────────────────────────
 SUMMARY_CRON     = "cron(0 * * * *)"   # chaque heure — changer en "cron(0 8,20 * * *)" pour 2x/jour
-TELEGRAM_CHAT_ID = 7332342681
 
 # Liste des watchdogs à surveiller.
 # Chaque entrée : (label affiché, sensor_entity_id, champ details dans les attributs)
@@ -106,7 +105,6 @@ def _send_summary(all_ok, notif_text, telegram_text):
     service.call(
         "telegram_bot",
         "send_message",
-        entity_id=[TELEGRAM_CHAT_ID],
         message=telegram_text
     )
 
