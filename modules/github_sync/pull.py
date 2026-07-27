@@ -5,12 +5,12 @@ from datetime import datetime
 def _notify(msg, entity_id=None):
     """Envoie un message Telegram en mode texte pur.
 
-    Calqué sur watchdog_summary: utilise entity_id=[chat_id] et
+    Calqué sur watchdog_summary: utilise entity_id=[entity_id] et
     laisse le parse_mode par défaut de l'intégration Telegram.
     """
     data = {"message": str(msg)}
-    if chat_id:
-        data["entity_id"] = [chat_id]
+    if entity_id:
+        data["entity_id"] = [entity_id]
     service.call("telegram_bot", "send_message", **data)
 
 
@@ -24,7 +24,7 @@ def dismiss_telegram_error():
     )
 
 
-def check_and_pull(chat_id=None):
+def check_and_pull(entity_id=None):
     log.info("check_and_pull demarre")
 
     # Stash les modifs locales (ex: logs/ha_warnings_errors.log)
@@ -54,14 +54,14 @@ def check_and_pull(chat_id=None):
             ),
             notification_id="gitpull_error",
         )
-        _notify("ghpull echoue :\n" + msg, chat_id)
+        _notify("ghpull echoue :\n" + msg, entity_id)
         return
 
     output = result.stdout.strip()
 
     if "up to date" in output.lower():
         log.info("check_and_pull -- deja a jour")
-        _notify("Pyscript deja a jour, aucun nouveau commit.", chat_id)
+        _notify("Pyscript deja a jour, aucun nouveau commit.", entity_id)
     else:
         log.info("check_and_pull -- nouveau commit : " + output)
         service.call(
@@ -81,12 +81,12 @@ def check_and_pull(chat_id=None):
         )
         _notify(
             "Nouveau code recupere depuis GitHub :\n" + output,
-            chat_id,
+            entity_id,
         )
 
 
 @event_trigger("pyscript_ghpull")
-def handle_pyscript_ghpull(action=None, chat_id=None, **kwargs):
+def handle_pyscript_ghpull(action=None, entity_id=None, **kwargs):
     """Gère l'event pyscript_ghpull déclenché par /ghpull."""
     if action == "pull":
-        check_and_pull(chat_id=chat_id)
+        check_and_pull(entity_id=entity_id)
