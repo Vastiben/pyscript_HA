@@ -18,7 +18,7 @@ def _notify(msg, chat_id=None):
     service.call(
         "telegram_bot",
         "send_message",
-        target=chat_id,
+        chat_id=chat_id,
         message=str(msg),
         parse_mode="html",
         disable_web_page_preview=True,
