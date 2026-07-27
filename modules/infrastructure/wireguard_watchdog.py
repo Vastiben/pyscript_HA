@@ -21,7 +21,6 @@ CHECK_CRON           = f"cron(*/{CHECK_CRON_MIN} * * * *)"
 WG_HANDSHAKE_MAX_AGE = CHECK_INTERVAL_SEC
 
 TWILIO_TARGET    = "+41792763781"
-TELEGRAM_CHAT_ID = 7332342681
 
 link_down      = False
 _check_running = False
@@ -105,7 +104,7 @@ def _send_telegram(message):
     service.call(
         "telegram_bot",
         "send_message",
-        chat_id=[TELEGRAM_CHAT_ID],
+        chat_id=none,
         message=message
     )
 
